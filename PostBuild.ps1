@@ -3,6 +3,7 @@ $outputRoot = "H:\TFS\WixBuilds\"
 $dropRoot = "H:\BuildDrop\"
 
 #default the version to 1.0.0 for DEV builds. If tagged build this value will be set appropriately
+$isDevBuild = $true
 $version = "1.0.0" 
 
 #get script root path
@@ -15,6 +16,8 @@ $REGEX_PATTERN_VERSION = '^[v]([0-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0
 $REGEX_PATTERN_VERSION_NUGET_PRE = '^[v]([0-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-4])\.([0-9]{1,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-4])\.([0-9]{1,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-4])(-pre)(00[1-9]|0[1-9][0-9]|[1-9][0-9][0-9])$'
 if([System.Text.RegularExpressions.Regex]::IsMatch($env:BUILD_SOURCEBRANCHNAME, $REGEX_PATTERN_VERSION) -or [System.Text.RegularExpressions.Regex]::IsMatch($env:BUILD_SOURCEBRANCHNAME, $REGEX_PATTERN_VERSION_NUGET_PRE))
 {
+    $isDevBuild = $false
+
     #remove "v" prefix
     $version = $env:BUILD_SOURCEBRANCHNAME.Substring(1)
 }
@@ -43,4 +46,15 @@ if($solutionFiles.Count -ne 0)
         Publish-Deliverables -SlnPath "$($_.DirectoryName)" -BinRootPath "$($binRootPath)" -Version $version -OutputRootPath "$($fullOutputRootPath)"
 
 	}
+}
+
+#******************************************************************************************************************* 
+
+if($isDevBuild)
+{
+    $deployScriptRoot = Join-Path (Get-Item $PSScriptRoot).Parent.FullName "Tfs-DeployScripts\"
+	$deployScriptPath = Join-Path $deployScriptRoot "Deploy.ps1"
+	Set-Location -Path $deployScriptRoot
+	$deployScriptCommand = '& "$deployScriptPath" -env "dev01" -msiRootPath "Development\$($env:BUILD_DEFINITIONNAME)"'
+	Invoke-Expression $deployScriptCommand
 }
