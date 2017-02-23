@@ -1,0 +1,1007 @@
+﻿<#@ template language="C#" hostspecific="true" #>
+<#@ output extension=".xml" #>
+<#@ import namespace="System" #>
+<#@ import namespace="System.IO" #>
+<#@ import namespace="System.Text" #>
+<#@ import namespace="System.Diagnostics" #>
+<#@ import namespace="System.Collections.Generic" #>
+<#@ assembly name="System.Xml" #>
+<#@ import namespace="System.Collections" #>
+<#@ import namespace="System.Security.Cryptography" #>
+<#
+  /*
+  ****************************************************************************
+  Purpose:
+    Purpose of this script is to generate wix directory fragments 
+    containing components and file and Feature fragment by crawling 
+    through directories. So it can be used in Continous Integration.
+ 
+    This script also handles synchronizing and using existing component 
+    guid if not found in wxs key value xml file. Otherwise it will generate 
+    component guid and save it to the file.
+ 
+    This script assumes that the user is always doing MAJOR UPGRADE!
+ 
+  [IN]
+    SourceRootDir - Relative path of the project root directory.  This is used to create a deterministic guid.
+		This is only important if one needs the ability to update/patch MSIs.  Otherwise, the absolute path
+		of the project root directory can be used.
+    SourceDir - directory the script needs to crawl which contains the deliverables
+	ApplicationName - The base name of the MSI, usually the name of the VS project
+	ApplicationType - WinApp, WebSite, WebService, WinService, PollManager, WorkManager, WorkHandler, PollHandler, GenericPoller, GenericWorker
+	UpgradeGuid - This guid should be static for a given assembly, probably the assembly guid
+	Version - The assembly/MSI version
+	HandlerNames - A comma delimited list of hadnler names (Optional: only applies to workhandlers and pollhandlers)
+    OutputDir - The output file (.wxs) is created here
+ 
+  ****************************************************************************
+  */
+	string defaultTargetDrive = @"C:\";
+	string applicationName = this.Host.ResolveParameterValue("", "", "ApplicationName");
+	string applicationType = this.Host.ResolveParameterValue("", "", "ApplicationType");
+	string sourceRootDir = this.Host.ResolveParameterValue("", "", "SourceRootDir");
+	string sourceDir = this.Host.ResolveParameterValue("", "", "SourceDir");
+	string outputDir = this.Host.ResolveParameterValue("", "", "OutputDir");
+	string version = this.Host.ResolveParameterValue("", "", "Version");
+	string containsPreReleaseNugetString = this.Host.ResolveParameterValue("", "", "ContainsPreReleaseNuget");
+	bool containsPreReleaseNuget = containsPreReleaseNugetString.ToLower() == "true";
+	string createShortcutString = this.Host.ResolveParameterValue("", "", "CreateShortcut");
+	bool createShortcut = createShortcutString.ToLower() == "true";
+
+	// Initialize variables
+	DirectoryInfo sourceDirInfo = new DirectoryInfo(sourceDir);
+	string outfileName = string.Format("{0}_v{1}.wxs", applicationName, version);
+	FileInfo outputFile = new FileInfo(Path.Combine(outputDir, outfileName));
+
+	// Paths
+	string defaultRootInstallPath = Path.Combine(defaultTargetDrive, @"Safeguard\");
+	string defaultServiceBusInstallPath = Path.Combine(defaultRootInstallPath, @"ServiceBus\");
+	
+	// Generate Wix fragments
+	switch (applicationType.ToUpper())
+	{
+		case "WINAPP":
+			GenerateWinAppWxs(sourceDirInfo, sourceRootDir, defaultRootInstallPath, containsPreReleaseNuget, createShortcut);
+			break;
+		case "WEBSITE":
+			GenerateWebSiteFilesOnlyWxs(sourceDirInfo, sourceRootDir, applicationType, Path.Combine(defaultRootInstallPath, "Websites"), containsPreReleaseNuget);
+			break;
+		case "WEBSERVICE":
+			GenerateWebSiteWxs(sourceDirInfo, sourceRootDir, applicationType, Path.Combine(defaultRootInstallPath, "Websites"), containsPreReleaseNuget);
+			break;
+		case "WINSERVICE":
+			GenerateWinServiceWxs(sourceDirInfo, sourceRootDir, defaultRootInstallPath, containsPreReleaseNuget);
+			break;
+		case "POLLMANAGER":
+		case "WORKMANAGER":
+			GenerateWorkerPollerServiceWxs(sourceDirInfo, sourceRootDir, applicationType, defaultServiceBusInstallPath, containsPreReleaseNuget);
+			break;
+		case "WORKHANDLER":
+		case "POLLHANDLER":
+		case "GENERICPOLLER":
+		case "GENERICWORKER":
+			GenerateHandlerPollerWxs(sourceDirInfo, sourceRootDir, applicationType, defaultServiceBusInstallPath, containsPreReleaseNuget);
+			break;
+	}
+	SaveOutput(outputFile);
+#>
+
+<#+ private void GenerateProductInfo() {
+    string productGuid = Guid.NewGuid().ToString("B").ToUpper();
+	string upgradeGuid = new Guid(this.Host.ResolveParameterValue("", "", "UpgradeGuid")).ToString("B").ToUpper();
+	string applicationName = this.Host.ResolveParameterValue("", "", "ApplicationName");
+	string version = this.Host.ResolveParameterValue("", "", "Version");
+#>
+<Product Id="<#= productGuid #>"
+    Name="<#= applicationName #>"
+    Language="1033"
+    Version="<#= version #>"
+    Manufacturer="Safeguard"
+    UpgradeCode="<#= upgradeGuid #>">
+    <Package Description="Installs a Safeguard component."
+        InstallerVersion="200"
+        Compressed="yes"
+		InstallScope="perMachine" />
+
+	<Icon Id="safeguard.ico" SourceFile="<#= this.Host.ResolvePath("safeguard.ico") #>"/>
+	<Property Id="ARPPRODUCTICON" Value="safeguard.ico" />
+    <Media Id="1" Cabinet="product.cab" EmbedCab="yes" />
+	<FeatureRef Id="Default"/>
+    <InstallUISequence>
+        <Custom Action="AssignTargetDir" Before="CostInitialize">TARGETDIR=""</Custom>
+    </InstallUISequence>
+    <InstallExecuteSequence>
+        <Custom Action="AssignTargetDir" Before="CostInitialize">TARGETDIR=""</Custom>
+		<RemoveExistingProducts After="InstallValidate" />
+    </InstallExecuteSequence>
+	<Upgrade Id="<#= upgradeGuid #>">
+		<UpgradeVersion Property="OLDINSTALLED" IncludeMinimum="yes" Minimum="0.0.0.0" />
+	</Upgrade>
+</Product>
+<#+ } #>
+
+<#+ private void GenerateWinServiceWxs(DirectoryInfo sourceDir
+                , string sourceRootDirName
+				, string defaultTargetDir=@"C:\"
+				, bool containsPreReleaseNuget = false) { #>
+<?xml version="1.0"?>
+<!--
+===========================================================
+  Put here Any Windows Service related fragments
+===========================================================
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+
+<#+ 
+	string applicationName = this.Host.ResolveParameterValue("", "", "ApplicationName");
+	string compGroupId = string.Format("CG_WinService_{0}", applicationName);
+	string dirId = "INSTALLWINDOWSSERVICEDIR";
+
+	GenerateProductInfo();
+#>
+
+  <Fragment>
+    <Property Id="ApplicationType" Value="WinService" />
+	<Property Id="ContainsPreRelease" Value="<#=containsPreReleaseNuget#>" />
+    <Feature Id="Default" Title="Default Feature" Level="1">
+        <ComponentGroupRef Id="<#=compGroupId#>" />
+    </Feature>
+  </Fragment>
+
+  <Fragment>
+
+    <DirectoryRef Id="<#=dirId#>">
+
+    <#+
+    List<string> components = new List<string>();
+
+    FileInfo exeFile = GetExeFile(sourceDir);
+    string serviceExeFileId = "_" + exeFile.Name.Replace(".", "_");
+
+    GetFiles(sourceDir, components, exeFile, sourceRootDirName);
+    RecurseDirectories(sourceDir, components, sourceRootDirName);
+    string longName = sourceDir.FullName.Substring(sourceDir.FullName.IndexOf(sourceRootDirName));
+    string componentGuid = GetDeterministicGuid("C_WinServiceInstallation"+longName).ToString("B").ToUpper();
+    #>
+    <Component Id='C_WinServiceInstallation' Guid='<#= componentGuid #>' >
+    <File Id='<#= serviceExeFileId #>' Name='<#= exeFile.Name #>' Source='<#= exeFile.FullName #>' KeyPath='yes' Vital='yes' Checksum='yes' DiskId='1' />   
+
+        <ServiceInstall Id='<#= serviceExeFileId #>'
+          DisplayName='<#=applicationName#>' 
+          Name='<#= exeFile.Name #>'
+          Interactive='no'
+          ErrorControl='normal' 
+          Start='auto' 
+          Type='ownProcess' 
+          Vital='yes'
+          Description='<#=applicationName#>'
+          Account='LocalSystem' />
+
+        <ServiceControl Id='<#= serviceExeFileId #>'
+           Name='<#= exeFile.Name #>'
+           Stop='both' 
+           Remove='uninstall' 
+           Wait='yes' />
+
+      </Component>
+
+    </DirectoryRef>
+
+    <ComponentGroup Id='<#=compGroupId#>'>
+      <ComponentRef Id='C_WinServiceInstallation' />
+      <#+ GetComponents(components); #>
+    </ComponentGroup>
+
+  </Fragment>
+
+  <Fragment>
+    <CustomAction Id="AssignTargetDir" Property="TARGETDIR" Value="<#=defaultTargetDir#>" Execute="firstSequence" />
+  </Fragment>
+
+  <Fragment>
+    <Directory Id="TARGETDIR" Name="SourceDir">
+	  <Directory Id="<#=dirId#>" Name="<#=applicationName#>">
+	  </Directory>
+    </Directory>
+  </Fragment>
+
+</Wix>
+
+<#+ } #>
+
+<#+ private void GenerateWinAppWxs(DirectoryInfo sourceDir
+                , string sourceRootDirName
+				, string defaultTargetDir=@"C:\"
+				, bool containsPreReleaseNuget = false
+				, bool createStartMenuShortcut = false) { #>
+<?xml version="1.0"?>
+<!--
+===========================================================
+  Put here any WinApp related fragments
+===========================================================
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+
+<#+ 
+	string applicationName = this.Host.ResolveParameterValue("", "", "ApplicationName");
+	string compGroupId = string.Format("CG_WinApp_{0}", applicationName);
+	string dirId = "INSTALLAPPDIR";
+	string exeFileId;
+	string upgradeGuidForShortcut = new Guid(this.Host.ResolveParameterValue("", "", "UpgradeGuid")).ToString("B").ToUpper();
+	string shortcutKey = @"Software\Safeguard\"+applicationName.Replace(" ", "");
+		
+	GenerateProductInfo();
+#>
+
+  <Fragment>
+    <Property Id="ApplicationType" Value="WinApp" />
+	<Property Id="ContainsPreRelease" Value="<#=containsPreReleaseNuget#>" />
+    <Feature Id="Default" Title="Default Feature" Level="1">
+        <ComponentGroupRef Id="<#=compGroupId#>" />
+    </Feature>
+  </Fragment>
+
+  <Fragment>
+
+    <DirectoryRef Id="<#=dirId#>">
+
+    <#+
+    List<string> components = new List<string>();
+    exeFileId = GetFiles(sourceDir, components, sourceRootDirName);
+    RecurseDirectories(sourceDir, components, sourceRootDirName);
+    #>
+
+    </DirectoryRef>
+
+<#+ if (createStartMenuShortcut){
+#>
+	<DirectoryRef Id="ApplicationProgramsFolder">
+		<Component Id="ApplicationShortcut" Guid="<#=upgradeGuidForShortcut#>">
+			<Shortcut Id="ApplicationStartMenuShortcut" 
+				Name="<#=applicationName#>" 
+				Description="<#=applicationName#>"
+				Target="[#<#=exeFileId#>]"
+				WorkingDirectory="APPLICATIONROOTDIRECTORY" />
+			<RemoveFolder Id="ApplicationProgramsFolder" On="uninstall" />
+			<RegistryValue Root="HKLM" Key="<#=shortcutKey#>" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+	   </Component>
+	</DirectoryRef>
+<#+ }
+#>
+	
+	
+    <ComponentGroup Id='<#=compGroupId#>'>
+      <#+ GetComponents(components); #>
+<#+ if (createStartMenuShortcut){
+#>
+		<ComponentRef Id="ApplicationShortcut" />
+<#+ }
+#>	  
+    </ComponentGroup>
+
+  </Fragment>
+
+  <Fragment>
+    <CustomAction Id="AssignTargetDir" Property="TARGETDIR" Value="<#=defaultTargetDir#>" Execute="firstSequence" />
+  </Fragment>
+
+  <Fragment>
+	<Directory Id="TARGETDIR" Name="SourceDir">
+		<Directory Id="<#=dirId#>" Name="<#=applicationName#>">
+		</Directory>
+<#+ if (createStartMenuShortcut){
+#>
+		<Directory Id="ProgramMenuFolder">
+			<Directory Id="SafeguardFolder" Name="Safeguard Properties">
+				<Directory Id="ApplicationProgramsFolder" Name="<#=applicationName#>"/>
+			</Directory>
+		</Directory>
+<#+ }
+#>		
+	</Directory>
+  </Fragment>
+
+</Wix>
+
+<#+ } #>
+
+<#+ private void GenerateWebSiteFilesOnlyWxs(DirectoryInfo sourceDir
+                , string sourceRootDirName
+		, string applicationType
+		, string defaultTargetDir=@"C:\"
+		, bool containsPreReleaseNuget = false) { #>
+<?xml version="1.0"?>
+<!--
+===========================================================
+  Put here any Website Files Only (no IIS) related fragments
+===========================================================
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+<#+
+	string applicationName = this.Host.ResolveParameterValue("", "", "ApplicationName").Replace(" ", "_");	
+	string compGroupId = string.Format("CG_WebSite_{0}", applicationName);
+	GenerateProductInfo();
+#>
+  <Fragment>
+    <Property Id="ApplicationType" Value="<#=applicationType#>" />
+	<Property Id="ContainsPreRelease" Value="<#=containsPreReleaseNuget#>" />
+    <Feature Id="Default" Title="Default Feature" Level="1">
+        <ComponentGroupRef Id="<#=compGroupId#>" />
+    </Feature>
+  </Fragment>
+  <Fragment>
+	<DirectoryRef Id="INSTALLWEBSITEDIR">
+    <#+
+    List<string> components = new List<string>();
+    GetFiles(sourceDir, components, sourceRootDirName);
+    RecurseDirectories(sourceDir, components, sourceRootDirName);
+    #>
+    </DirectoryRef>
+    <ComponentGroup Id='<#=compGroupId#>'>
+      <#+ GetComponents(components); #>
+    </ComponentGroup>
+  </Fragment>
+  <Fragment>
+    <CustomAction Id="AssignTargetDir" Property="TARGETDIR" Value="<#=defaultTargetDir#>" Execute="firstSequence" />
+  </Fragment>
+  <Fragment>
+  	<Directory Id="TARGETDIR" Name="SourceDir">
+		<Directory Id="INSTALLWEBSITEDIR" Name="<#=applicationName#>">
+		</Directory>
+	</Directory>
+  </Fragment>
+</Wix>
+<#+ } #>
+
+<#+ private void GenerateWebSiteWxs(DirectoryInfo sourceDir
+                , string sourceRootDirName
+		, string applicationType
+		, string defaultTargetDir=@"C:\"
+		, bool containsPreReleaseNuget = false) {
+
+	string applicationName = this.Host.ResolveParameterValue("", "", "ApplicationName").Replace(" ", "_");
+	string createVirDir = this.Host.ResolveParameterValue("", "", "CreateVirDir");
+	bool isVirDir = !string.IsNullOrEmpty(createVirDir) && (createVirDir.ToUpper().Equals("TRUE") || createVirDir.ToUpper().Equals("YES"))
+						? true : false;
+	string https = this.Host.ResolveParameterValue("", "", "Https");
+	bool isHttps = !string.IsNullOrEmpty(https) && (https.ToUpper().Equals("TRUE") || https.ToUpper().Equals("YES")) ? true : false;
+    string typeDesc = applicationType.ToUpper().Equals("WEBSITE") ? "Web Site" : "Web Service";
+	string description = string.Format("{0} {1}", applicationName, typeDesc);
+	string compGroupId = string.Format("CG_WebSite_{0}", applicationName);
+#>
+<?xml version="1.0"?>
+<!--
+===========================================================
+  Put here any IIS deployment related fragments here.
+===========================================================
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension"
+     xmlns:iis="http://schemas.microsoft.com/wix/IIsExtension">
+<#+
+  GenerateProductInfo();
+#>
+
+  <Fragment>
+    <Property Id="ApplicationType" Value="<#=applicationType#>" />
+	<Property Id="ContainsPreRelease" Value="<#=containsPreReleaseNuget#>" />
+    <Feature Id="Default" Title="Default Feature" Level="1">
+        <ComponentGroupRef Id="<#=compGroupId#>" />
+    </Feature>
+  </Fragment>
+
+  <Fragment>
+
+    <iis:WebDirProperties
+      Id='WEBSITE<#=applicationName#>DirProp'
+      Read='yes'
+      LogVisits='yes'
+      Index='yes'
+      Script='yes'
+      DefaultDocuments='login.aspx,service.svc,service1.svc,service.asmx,default.aspx' />
+
+    <iis:WebApplication
+      Id='WEBAPP<#=applicationName#>'
+      Name='WEBAPP<#=applicationName#>'
+      SessionTimeout='20'
+      WebAppPool='_AppPool_<#=applicationName#>' />
+
+    <DirectoryRef Id="INSTALLWEBSITEDIR">
+      <#+
+      List<string> components = new List<string>
+        ();
+        GetFiles(sourceDir, components, sourceRootDirName);
+        RecurseDirectories(sourceDir, components, sourceRootDirName);
+        string longName = sourceDir.FullName.Substring(sourceDir.FullName.IndexOf(sourceRootDirName));
+        string componentGuid = GetDeterministicGuid("C_WebSiteInstallation"+longName).ToString("B").ToUpper();
+        string appPoolGuid = GetDeterministicGuid("C_AppPool"+longName).ToString("B").ToUpper();
+        string removeInstallDirGuid = GetDeterministicGuid("C_RemoveDir"+longName).ToString("B").ToUpper();
+        string certificateComponentGuid = GetDeterministicGuid("C_WEBSITE_InstallCertificate_"+longName).ToString("B").ToUpper();
+        string virualDirGuid = GetDeterministicGuid("C_VirDir"+longName).ToString("B").ToUpper();
+        #>
+        <Component
+        Id='C_AppPool_<#=applicationName#>'
+        Guid='<#= appPoolGuid #>'
+        KeyPath='yes'>
+
+        <iis:WebAppPool
+          Id='_AppPool_<#=applicationName#>'
+          Name='_AppPool_<#=applicationName#>' />
+      </Component>
+
+<#+
+	if (isHttps)
+    {
+#>
+      <Component
+        Id='C_WEBSITE_InstallCertificate_<#=applicationName#>'
+        Guid='<#= certificateComponentGuid #>'
+        KeyPath='yes'
+        DiskId='1'>
+
+        <iis:Certificate
+          Id='_WEBSITE_InstallCertificate_<#=applicationName#>'
+          CertificatePath='[CERTIFICATEPATH]'
+          PFXPassword='[PFXPASSWORD]'
+          Name='[CERTNAME]'
+          Request='no'
+          StoreName='personal'
+          StoreLocation='localMachine' />
+      </Component>
+<#+
+    }
+#>
+
+      <Component
+        Id='C_WebSiteInstallation'
+        Guid='<#= componentGuid #>'
+        KeyPath='yes'>
+
+        <iis:WebSite
+          Id='WEBSITE<#=applicationName#>'
+          Description='<#=description#>'
+          DirProperties='WEBSITE<#=applicationName#>DirProp'
+<#+ if (isVirDir)
+    {
+#>
+          Directory='INSTALLDIR'
+<#+ }
+	else
+    {
+#>
+		  Directory='INSTALLWEBSITEDIR'
+<#+ }
+#>
+          ConfigureIfExists='yes'
+          StartOnInstall='yes'
+          AutoStart='yes'
+          WebApplication='WEBAPP<#=applicationName#>'>
+
+        <iis:WebAddress
+          Id='AllUnassignedWebSite'
+          Port='[APPLICATIONPORT]' />
+
+<#+ if (isHttps)
+    {
+#>
+        <iis:WebAddress
+          Id='HTTPS'
+          Port='[HTTPSPORT]'
+          Secure='yes' />
+        <iis:CertificateRef Id='_WEBSITE_InstallCertificate_<#=applicationName#>' />
+<#+ }
+#>
+        </iis:WebSite>
+      </Component>
+
+<#+ if (isVirDir)
+    {
+#>
+      <Component
+        Id='C_VirDir'
+        Guid='<#= virualDirGuid #>'
+        KeyPath='yes'>
+
+        <iis:WebVirtualDir
+          Id='VirDir<#=applicationName#>'
+          Alias='<#=applicationName#>'
+          Directory='INSTALLWEBSITEDIR'
+          WebSite='WEBSITE<#=applicationName#>'
+          DirProperties='WEBSITE<#=applicationName#>DirProp'
+          WebApplication='WEBAPP<#=applicationName#>'
+               >
+        </iis:WebVirtualDir>
+      </Component>
+<#+ }
+#>
+      <Component
+        Id="IISRestart"
+        Guid="{1100394D-E6DA-4885-B3D0-4A269A272F86}"
+        KeyPath="yes">
+
+        <ServiceControl
+          Id='RestartIIS'
+          Name='W3SVC'
+          Stop='both'
+          Start='both'/>
+      </Component>
+
+      <Component
+        Id="C_RemoveDir<#=applicationName#>"
+        Guid="<#= removeInstallDirGuid #>">
+
+        <RemoveFolder
+          Id="_RemoveDir<#=applicationName#>"
+          On="uninstall"
+          Directory="INSTALLWEBSITEDIR" />
+      </Component>      
+    </DirectoryRef>
+
+    <ComponentGroup Id='<#=compGroupId#>'>
+      <ComponentRef Id='C_WebSiteInstallation' />
+<#+ if (isVirDir)
+    {
+#>
+      <ComponentRef Id='C_VirDir' />
+<#+ }
+#>
+      <ComponentRef Id='C_AppPool_<#=applicationName#>' />
+      <ComponentRef Id='C_RemoveDir<#=applicationName#>' />
+      <ComponentRef Id='IISRestart' />
+<#+ if (isHttps)
+    {
+#>
+      <ComponentRef Id='C_WEBSITE_InstallCertificate_<#=applicationName#>' />
+<#+ }
+#>
+      <#+ GetComponents(components); #>
+    </ComponentGroup>
+
+    <!--
+    <iis:WebApplicationExtension Extension="ad" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="adprototype" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="asax" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="ascx" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="ashx" CheckPath="no" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="asmx" CheckPath="no" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="aspx" CheckPath="no" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="axd" CheckPath="no" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="browser" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="cd" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="compiled" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="config" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="csproj" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="dd" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="exclude" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="java" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="jsl" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="ldb" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="ldd" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="lddprototype" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="ldf" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="licx" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="master" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="mdb" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="mdf" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="msgx" CheckPath="no" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="refresh" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="rem" CheckPath="no" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="resources" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="resx" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="sd" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="sdm" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="sdmDocument" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="sitemape" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="skin" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="soap" CheckPath="no" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="svc" CheckPath="no" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="vb" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="vbproj" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="vjsproj" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="vsdisco" CheckPath="no" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    <iis:WebApplicationExtension Extension="webinfo" CheckPath="yes" Script="yes" Executable="[WindowsFolder]Microsoft.NET\Framework\$(var.ASPNETVERSION)\aspnet_isapi.dll" Verbs="GET,HEAD,POST" />
+    -->
+ 
+  </Fragment>
+
+  <Fragment>
+    <CustomAction Id="AssignTargetDir" Property="TARGETDIR" Value="<#=defaultTargetDir#>" Execute="firstSequence" />
+  </Fragment>
+
+  <Fragment>
+  	<Directory Id="TARGETDIR" Name="SourceDir">
+		<Directory Id="INSTALLWEBSITEDIR" Name="<#=applicationName#>">
+		</Directory>
+	</Directory>
+  </Fragment>
+
+  <Fragment>
+	<Directory Id="TARGETDIR" Name="SourceDir">
+		<Directory Id="INSTALLDIR" Name="<#=applicationName#>">
+		</Directory>
+	</Directory>
+  </Fragment>
+
+</Wix>
+ 
+<#+ } #>
+
+<#+ private void GenerateHandlerPollerWxs(DirectoryInfo sourceDir
+                , string sourceRootDirName
+		, string applicationType
+		, string defaultTargetDir=@"C:\"
+		, bool containsPreReleaseNuget = false) { #>
+<?xml version="1.0"?>
+<!--
+===========================================================
+  Put here any Work/Poll Handler related fragments
+===========================================================
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+
+<#+
+	string handlerNames = this.Host.ResolveParameterValue("", "", "HandlerNames");
+	string applicationName = this.Host.ResolveParameterValue("", "", "ApplicationName");
+	string dirId;
+	string dirName;
+	string compGroupId;
+
+	switch(applicationType.ToUpper())
+    {
+		case "WORKHANDLER":
+			dirId = "WORKHANDLERDIR";
+			dirName = "WorkHandlers";
+			compGroupId = string.Format("CG_WorkHndlr_{0}", applicationName.Replace(" ", "_"));
+			break;
+		case "POLLHANDLER":
+			dirId = "POLLHANDLERDIR";
+			dirName = "PollHandlers";
+			compGroupId = string.Format("CG_PollHndlr_{0}", applicationName.Replace(" ", "_"));
+			break;
+		case "GENERICWORKER":
+			dirId = "GENERICWORKERDIR";
+			dirName = "GenericWorker";
+			compGroupId = string.Format("CG_GenWrkr_{0}", applicationName.Replace(" ", "_"));
+			break;
+		case "GENERICPOLLER":
+			dirId = "GENERICPOLLERDIR";
+			dirName = "GenericPoller";
+			compGroupId = string.Format("CG_GenPllr_{0}", applicationName.Replace(" ", "_"));
+			break;
+		default:
+			return;
+    }
+
+	GenerateProductInfo();
+#>
+
+  <Fragment>
+    <Property Id="ApplicationType" Value="<#=applicationType#>" />
+	<Property Id="ContainsPreRelease" Value="<#=containsPreReleaseNuget#>" />
+<#+
+	if (applicationType.ToUpper().Equals("WORKHANDLER"))
+    {
+#>
+	<Property Id="HandlerNames" Value="<#=handlerNames#>" />
+<#+
+    }
+#>
+
+<#+
+	if (applicationType.ToUpper().Equals("POLLHANDLER"))
+    {
+#>
+	<Property Id="HandlerNames" Value="<#=handlerNames#>" />
+<#+
+    }
+#>
+
+    <Feature Id="Default" Title="Default Feature" Level="1">
+        <ComponentGroupRef Id="<#=compGroupId#>" />
+    </Feature>
+  </Fragment>
+
+  <Fragment>
+
+<#+
+	if (!applicationType.ToUpper().Equals("GENERICWORKER") && !applicationType.ToUpper().Equals("GENERICPOLLER"))
+    {
+#>
+    <DirectoryRef Id="INSTALLAPPDIR">
+<#+
+    }
+	else
+    {
+#>
+    <DirectoryRef Id="<#= dirId #>">
+<#+
+    }
+#>
+
+    <#+
+    List<string> components = new List<string>();
+    GetFiles(sourceDir, components, sourceRootDirName);
+    RecurseDirectories(sourceDir, components, sourceRootDirName);
+    #>
+    </DirectoryRef>
+
+    <ComponentGroup Id='<#=compGroupId#>'>
+      <#+ GetComponents(components); #>
+    </ComponentGroup>
+
+  </Fragment>
+
+  <Fragment>
+    <CustomAction Id="AssignTargetDir" Property="TARGETDIR" Value="<#=defaultTargetDir#>" Execute="firstSequence" />
+  </Fragment>
+
+  <Fragment>
+	<Directory Id="TARGETDIR" Name="SourceDir">
+		<Directory Id="<#= dirId #>" Name="<#= dirName #>">
+<#+
+	if (!applicationType.ToUpper().Equals("GENERICWORKER") && !applicationType.ToUpper().Equals("GENERICPOLLER"))
+    {
+#>
+		    <Directory Id="INSTALLAPPDIR" Name="<#=applicationName#>">
+			</Directory>
+<#+
+    }
+#>
+		</Directory>
+	</Directory>
+  </Fragment>
+
+</Wix>
+
+<#+ } #>
+
+<#+ private void GenerateWorkerPollerServiceWxs(DirectoryInfo sourceDir
+                , string sourceRootDirName
+		, string applicationType
+		, string defaultTargetDir=@"C:\"
+		, bool containsPreReleaseNuget = false) { #>
+<?xml version="1.0"?>
+<!--
+===========================================================
+  Put here Any Windows Service related fragments
+===========================================================
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+
+<#+ 
+	string applicationName = this.Host.ResolveParameterValue("", "", "ApplicationName");
+	string dirId;
+	string dirName;
+	string compGroupId;
+
+	switch(applicationType.ToUpper())
+    {
+		case "WORKMANAGER":
+			dirId = "WORKMANAGERDIR";
+			dirName = "WorkManager";
+			compGroupId = string.Format("CG_WrkMngr_{0}", applicationName.Replace(" ","_"));
+			break;
+		case "POLLMANAGER":
+			dirId = "POLLMANAGERDIR";
+			dirName = "PollManager";
+			compGroupId = string.Format("CG_PollMngr_{0}", applicationName.Replace(" ","_"));
+			break;
+		default:
+			return;
+    }
+
+	GenerateProductInfo();
+#>
+
+  <Fragment>
+    <Property Id="ApplicationType" Value="<#=applicationType#>" />
+	<Property Id="ContainsPreRelease" Value="<#=containsPreReleaseNuget#>" />
+    <Feature Id="Default" Title="Default Feature" Level="1">
+        <ComponentGroupRef Id="<#=compGroupId#>" />
+    </Feature>
+  </Fragment>
+
+  <Fragment>
+
+    <DirectoryRef Id="<#= dirId #>">
+
+    <#+
+    List<string> components = new List<string>();
+
+    FileInfo exeFile = GetExeFile(sourceDir);
+    string serviceExeFileId = "_" + exeFile.Name.Replace(".", "_");
+
+    GetFiles(sourceDir, components, exeFile, sourceRootDirName);
+    RecurseDirectories(sourceDir, components, sourceRootDirName);
+    string longName = sourceDir.FullName.Substring(sourceDir.FullName.IndexOf(sourceRootDirName));
+    string componentGuid = GetDeterministicGuid("C_WinServiceInstallation"+longName).ToString("B").ToUpper();
+    #>
+    <Component Id='C_WinServiceInstallation' Guid='<#= componentGuid #>' >
+    <File Id='<#= serviceExeFileId #>' Name='<#= exeFile.Name #>' Source='<#= exeFile.FullName #>' KeyPath='yes' Vital='yes' Checksum='yes' DiskId='1' />   
+
+        <ServiceInstall Id='<#= serviceExeFileId #>'
+          DisplayName='<#=applicationName#>' 
+          Name='<#= exeFile.Name #>'
+          Interactive='no'
+          ErrorControl='normal' 
+          Start='auto' 
+          Type='ownProcess' 
+          Vital='yes'
+          Description='<#=applicationName#>'
+          Account='LocalSystem' />
+
+        <ServiceControl Id='<#= serviceExeFileId #>'
+           Name='<#= exeFile.Name #>'
+           Stop='both' 
+           Remove='uninstall' 
+           Wait='yes' />
+
+      </Component>
+
+    </DirectoryRef>
+
+    <ComponentGroup Id='<#=compGroupId#>'>
+      <ComponentRef Id='C_WinServiceInstallation' />
+      <#+ GetComponents(components); #>
+    </ComponentGroup>
+
+  </Fragment>
+
+  <Fragment>
+    <CustomAction Id="AssignTargetDir" Property="TARGETDIR" Value="<#=defaultTargetDir#>" Execute="firstSequence" />
+  </Fragment>
+
+  <Fragment>
+	<Directory Id="TARGETDIR" Name="SourceDir">
+		<Directory Id="<#= dirId #>" Name="<#= dirName #>">
+		</Directory>
+	</Directory>
+</Fragment>
+
+</Wix>
+<#+ } #>
+
+<#+
+  // Using directory name is NOT best Practice because
+  // other application might have same directory name.
+  // Generating guid and using guid is only good if
+  // same guid is used instead of generating new one
+  // because generating new guid every build will not
+  // allow MSI to be patched or Upgraded.
+  // wxsKeyValues contains Key using directory name
+  // value as guid from previously created.
+  private void RecurseDirectories(DirectoryInfo sourceDir
+                  , List<string> components
+                  , string sourceRootDirName) 
+  {
+    string longName;
+    string name;
+    string dirid;
+    foreach (DirectoryInfo dir in sourceDir.GetDirectories())
+    {
+      longName = dir.FullName.Substring(dir.FullName.IndexOf(sourceRootDirName));
+      dirid = "_" + GetDeterministicGuid(longName).ToString("N").ToUpper();
+      name = dir.Name;
+ 
+      WriteLine(string.Format("<Directory Id='{0}' Name='{1}'>", dirid, name));
+      GetFiles(dir, components, sourceRootDirName);
+      RecurseDirectories(dir, components, sourceRootDirName);
+      WriteLine("</Directory>");
+    }
+  }
+#>
+
+<#+ 
+  // Read comments from RecurseDirectories.
+  // It is same reason as for directory and applies to file.
+  // We create component per file because it allows
+  // flexibility when doing patching or
+  // upgrading. Also eliminates naming conflict.
+  private string GetFiles(DirectoryInfo sourceDir
+              , List<string> components
+              , FileInfo exclude
+              , string sourceRootDirName)
+  {
+    string componentGuid;
+    string compId;
+    string fileId;
+	string exeFileId = "";
+	
+    foreach (FileInfo file in sourceDir.GetFiles())
+    {
+	  if(file.Name.ToUpper() == "OVERRIDE.CONFIG")
+		continue;
+		
+      if(exclude == null || exclude.FullName.ToUpper() != file.FullName.ToUpper())
+      {
+        string src = file.FullName;
+ 
+        string longName = file.FullName.Substring(file.FullName.IndexOf(sourceRootDirName));
+        Guid guid = GetDeterministicGuid(longName);
+ 
+        componentGuid = guid.ToString("B").ToUpper();
+        compId = "C__" + guid.ToString("N");
+        fileId = "_" + guid.ToString("N");
+        string name = file.Name;
+		
+		if(name.ToUpper().EndsWith(".EXE"))
+			exeFileId = fileId;
+ 
+        WriteLine(string.Format("<Component Id='{0}' Guid='{1}' DiskId='1'>", compId, componentGuid));
+        WriteLine(string.Format("<File Id='{0}' Name='{1}' Vital='yes' KeyPath='yes' Checksum='yes' Source='{2}' />", fileId, name, src));
+        WriteLine("</Component>");
+ 
+        components.Add(compId);
+		
+		
+      }
+    }
+	
+	return exeFileId;
+  }
+#>
+
+<#+ private string GetFiles(DirectoryInfo sourceDir
+              , List<string> components
+              , string sourceRootDirName)
+  {
+    return GetFiles(sourceDir, components, null, sourceRootDirName);
+  }
+#>
+
+<#+
+  private FileInfo GetExeFile(DirectoryInfo sourceDir) 
+  {
+    FileInfo exeFile = null;
+    foreach (FileInfo file in sourceDir.GetFiles())
+    {
+      if (!string.IsNullOrEmpty(file.Extension) && file.Extension.ToUpper().Equals(".EXE"))
+      {
+        exeFile = file;
+        break;
+      }
+    }
+    return exeFile;
+  }
+#>
+
+<#+
+  private void GetComponents(List<string> components) 
+  {
+    foreach(string str in components)
+    {
+      WriteLine(string.Format("<ComponentRef Id='{0}'/>", str));
+    }
+  }
+#>
+
+<#+
+  private void SaveOutput(FileInfo outputFile)
+  {
+    FileInfo file = new FileInfo(outputFile.FullName);
+    if(!file.Directory.Exists)
+      file.Directory.Create();
+    File.WriteAllText(outputFile.FullName, this.GenerationEnvironment.ToString());
+    this.GenerationEnvironment.Remove(0, this.GenerationEnvironment.Length);
+  }
+#>
+
+<#+
+  private Guid GetDeterministicGuid(string input)
+  {
+    //use MD5 hash to get a 16-byte hash of the string: 
+    MD5CryptoServiceProvider provider = new MD5CryptoServiceProvider();    
+    byte[] inputBytes = Encoding.Default.GetBytes(input);
+    byte[] hashBytes = provider.ComputeHash(inputBytes);
+ 
+    //generate a guid from the hash: 
+    Guid hashGuid = new Guid(hashBytes);
+ 
+    return hashGuid;
+  }
+#>

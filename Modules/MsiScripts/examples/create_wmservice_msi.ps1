@@ -1,0 +1,3 @@
+Import-Module ..\Write-Msi.psm1 -Force
+
+Write-Msi -ApplicationName WorkManagerService -ApplicationType WorkManager -UpgradeGuid 5bd26d3d-de03-4c5d-87d9-28d2ff40d1fe -Version 1.0.0.0 -SourceDir C:\Safeguard\ServicesTeam\Service\Development\Source\ServiceBus\ServiceBus.Core\WorkManagerService\bin\Debug -SourceRootDir ServiceBus\ServiceBus.Core\WorkManagerService -OutputDir C:\Safeguard\ServicesTeam\Service\Development\Source\ServiceBus\ServiceBus.Core\WorkManagerService\wxs

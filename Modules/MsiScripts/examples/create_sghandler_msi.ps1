@@ -1,0 +1,3 @@
+Import-Module ..\Write-Msi.psm1 -Force
+
+Write-Msi -ApplicationName SPIGlassService -ApplicationType WorkHandler -QueueNames SPIGLASS -UpgradeGuid 2711d933-f78d-4ed5-a6e2-f372e76a4958 -Version 1.0.0.0 -SourceDir C:\Safeguard\ServicesTeam\WorkHandlers\Development\WorkHandlers.SPIGlass\SPIGlassService\bin\Debug -SourceRootDir WorkHandlers.SPIGlass\SPIGlassService -OutputDir C:\Safeguard\ServicesTeam\WorkHandlers\Development\WorkHandlers.SPIGlass\SPIGlassService\wxs
