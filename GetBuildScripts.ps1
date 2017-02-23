@@ -5,10 +5,11 @@ $PSScriptRoot = Split-Path -Parent -Path $MyInvocation.MyCommand.Definition
 $buildScriptsPath = $PSScriptRoot
 
 #load the user password from the secure string in a file
-$secureStringFile = Join-Path $PSScriptRoot "\password.securestring.svc_build.txt"
+$secureStringFile = Join-Path $PSScriptRoot "\svc_build.password.securestring.txt"
 $sspassword = cat $secureStringFile | convertto-securestring
 $binpassword = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($sspassword)
 $plainpassword = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($binpassword)
+
 
 #must provide credentials in the path
 $repositoryPath = $repositoryUrl.Replace("https://", "https://svc_build:$plainpassword@")
