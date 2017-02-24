@@ -96,7 +96,7 @@ function Publish-Deliverables
         $projectBinPath = ""
 		if($appType -eq "WEBSITE")
 		{
-			$projectBinPath = $BinRootPath.Replace("\drop","\_PublishedWebsites") $appSourceDirectory
+			$projectBinPath = Join-Path $BinRootPath.Replace("\drop","\_PublishedWebsites") $appSourceDirectory
 		}
 		else 
 		{
