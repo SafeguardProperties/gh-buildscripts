@@ -41,9 +41,9 @@ if($solutionFiles.Count -ne 0)
 	$solutionFiles | % {	
 		#$solutionName = $_.Name.Replace(".sln", [string]::Empty)
 
-        #$binRootPath = Join-Path $Env:BUILD_ARTIFACTSTAGINGDIRECTORY "drop"
+        $binRootPath = $Env:BUILD_ARTIFACTSTAGINGDIRECTORY #Join-Path $Env:BUILD_ARTIFACTSTAGINGDIRECTORY "drop"
         Write-Host "Publish-Deliverables -SlnPath `"$($_.DirectoryName)`" -BinRootPath `"$($binRootPath)`" -Version $($version) -OutputRootPath `"$($fullOutputRootPath)`""
-        Publish-Deliverables -SlnPath "$($_.DirectoryName)" -BinRootPath "$($Env:BUILD_ARTIFACTSTAGINGDIRECTORY)" -Version $version -OutputRootPath "$($fullOutputRootPath)"
+        Publish-Deliverables -SlnPath "$($_.DirectoryName)" -BinRootPath "$($binRootPath)" -Version $version -OutputRootPath "$($fullOutputRootPath)"
 
 	}
 }
