@@ -92,23 +92,52 @@ function Publish-Deliverables
 		$appArguments = @()
 		if($_.Attribute("Arguments") -ne $null){ $appArguments = ($_.Attribute("Arguments").Value.Split(',') | % {$_.Trim()}) }
 
+		#**************************************************
+		#if there is no Solution Path, simple package of BinRootPath
+		$projectBinPath = $null
+		if(([string]::IsNullOrEmpty($SlnPath)))	
+		{
+			$projectBinPath = Join-Path $BinRootPath $appSourceDirectory
+		}
+		else
+		{
+			#get the project in the appSourceDirectory
+			$csProjFile = Get-ChildItem (Join-Path $SlnPath $appSourceDirectory) -filter "*.csproj"
+			if($csProjFile -ne $null -and $csProjFile.Name -ne $null -and $csProjFile.Name.Length -gt 0)
+			{
+				$projectName = $csProjFile.Name.Replace(".csproj", [string]::Empty)
+				$projectBinPath = Join-Path $BinRootPath $projectName
+			}
+		}
+
+		#web applications will put their output in a publish folder, if building a website tack this on
+		if($appType.ToUpper() -eq "WEBSITE")
+		{ 
+			$projectBinPathWebApplicationPath = Join-Path $projectBinPath "_PublishedWebsites\$($projectName)" 
+			if(Test-Path $projectBinPathWebApplicationPath)
+			{
+				$projectBinPath = $projectBinPathWebApplicationPath
+			}
+		}
+
+
 		#setup bin location (probably should really be using the artifact directory)
-        $projectBinPath = ""
-		if($appType -eq "WEBSITE")
-		{
-			$projectBinPath = Join-Path $BinRootPath.Replace("\drop","\_PublishedWebsites") $appSourceDirectory
-		}
-		else 
-		{
-			if((Get-Item "$($OutputRootPath)").Name.StartsWith("DEV -") -eq $true)
-			{
-				$projectBinPath = Join-Path (Join-Path $BinRootPath $appSourceDirectory) "bin\Debug"
-			}
-			else
-			{
-				$projectBinPath = Join-Path (Join-Path $BinRootPath $appSourceDirectory) "bin\Release"
-			}
-		}
+        # $projectBinPath = ""
+		# if($appType -eq "WEBSITE")
+		# {
+		# 	$projectBinPath = Join-Path $BinRootPath.Replace("\drop","\_PublishedWebsites") $appSourceDirectory
+		# }
+		# else 
+		# {
+		# 	if((Get-Item "$($OutputRootPath)").Name.StartsWith("DEV -") -eq $true)
+		# 	{
+		# 		$projectBinPath = Join-Path (Join-Path $BinRootPath $appSourceDirectory) "bin\Debug"
+		# 	}
+		# 	else
+		# 	{
+		# 		$projectBinPath = Join-Path (Join-Path $BinRootPath $appSourceDirectory) "bin\Release"
+		# 	}
+		# }
 
 		
         
