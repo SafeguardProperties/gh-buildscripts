@@ -119,27 +119,6 @@ function Publish-Deliverables
 				$projectBinPath = $projectBinPathWebApplicationPath
 			}
 		}
-
-
-		#setup bin location (probably should really be using the artifact directory)
-        # $projectBinPath = ""
-		# if($appType -eq "WEBSITE")
-		# {
-		# 	$projectBinPath = Join-Path $BinRootPath.Replace("\drop","\_PublishedWebsites") $appSourceDirectory
-		# }
-		# else 
-		# {
-		# 	if((Get-Item "$($OutputRootPath)").Name.StartsWith("DEV -") -eq $true)
-		# 	{
-		# 		$projectBinPath = Join-Path (Join-Path $BinRootPath $appSourceDirectory) "bin\Debug"
-		# 	}
-		# 	else
-		# 	{
-		# 		$projectBinPath = Join-Path (Join-Path $BinRootPath $appSourceDirectory) "bin\Release"
-		# 	}
-		# }
-
-		
         
 		#*****************************************
 		if(Test-Path $projectBinPath)
