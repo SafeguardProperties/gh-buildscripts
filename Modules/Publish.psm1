@@ -59,6 +59,7 @@ function Publish-Deliverables
 		$deliverablesPath = Join-Path $BinRootPath "Deliverables.xml"
 	}
 	
+	#exit without error if no manifest
     if(-not (Test-Path $deliverablesPath))
     {
         Write-Host ("Publish-Deliverables --> Deliverables.xml not found.")
