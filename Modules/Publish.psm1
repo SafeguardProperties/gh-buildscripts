@@ -245,6 +245,11 @@ function Publish-Deliverables
 					exit 1
 				}
 			}
+		}
+		else
+		{
+			Write-Error ("Publish-Deliverables --> projectBinPath not found: $($projectBinPath)")
+	    	exit 1
 		}	
 				
 		
