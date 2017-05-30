@@ -29,6 +29,9 @@ if(-not (Test-Path $fullOutputRootPath))
 	New-Item -path $fullOutputRootPath -type directory
 }
 
+$fullOutputRootPathFiles = Join-Path $fullOutputRootPath "\*"
+Remove-Item $fullOutputRootPathFiles
+
 #******************************************************************************************************************* 
 
 #find all solution files
