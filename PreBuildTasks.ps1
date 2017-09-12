@@ -39,7 +39,7 @@ if([System.Text.RegularExpressions.Regex]::IsMatch($env:BUILD_SOURCEBRANCHNAME, 
 </Project>
 "@
 		$filename = Join-Path $env:BUILD_SOURCESDIRECTORY "Directory.build.props"
-		Out-File -FilePath $filename
+		$xml | Out-File -FilePath $filename
 	}
 }
 
