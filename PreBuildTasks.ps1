@@ -4,12 +4,13 @@ if([System.Text.RegularExpressions.Regex]::IsMatch($env:BUILD_SOURCEBRANCHNAME, 
 {
 	#remove v prefix
     $version = $env:BUILD_SOURCEBRANCHNAME.Substring(1)
-
+	$versionSimple = ''
+	
 	#nuget prerelease will be suffixed with "-pre001", strip this for assembly versioning
 	$versionPreIndex = $version.IndexOf("-pre")
 	if($versionPreIndex -ge 0)
 	{
-		$version = $version.Substring(0, $versionPreIndex) 
+		$versionSimple = $version.Substring(0, $versionPreIndex) 
 	}
 
     #update AssemblyInfo(s) so the built version matches the version tag
@@ -21,8 +22,27 @@ if([System.Text.RegularExpressions.Regex]::IsMatch($env:BUILD_SOURCEBRANCHNAME, 
 	    Write-Host "Applying version: $AssemblyVersion -> $($file.FullName)"
 	    $tempFile = $file.FullName + ".tmp"
 	    Get-Content $file.FullName |
-	    %{$_ -replace 'AssemblyVersion\("[0-9]+(\.([0-9]+|\*)){1,3}"\)', "AssemblyVersion(""$version"")" } |
-	    %{$_ -replace 'AssemblyFileVersion\("[0-9]+(\.([0-9]+|\*)){1,3}"\)', "AssemblyFileVersion(""$version"")" }  > $tempFile
+	    %{$_ -replace 'AssemblyVersion\("[0-9]+(\.([0-9]+|\*)){1,3}"\)', "AssemblyVersion(""$versionSimple"")" } |
+	    %{$_ -replace 'AssemblyFileVersion\("[0-9]+(\.([0-9]+|\*)){1,3}"\)', "AssemblyFileVersion(""$versionSimple"")" }  > $tempFile
 	    Move-Item $tempFile $file.FullName -force
     }
+	
+	#if we don't have AssemblyInfo(s) assume newer build customization
+	if($assemblyInfoFiles -eq $null)
+	{
+		Write-Host "Applying version: Directory.build.props"
+		$xml = @"
+<Project>
+ <PropertyGroup>
+   <Version>$version</Version>
+ </PropertyGroup>
+</Project>
+"@
+		$filename = Join-Path $env:BUILD_SOURCESDIRECTORY "Directory.build.props"
+		Out-File -FilePath $filename
+	}
 }
+
+
+
+
