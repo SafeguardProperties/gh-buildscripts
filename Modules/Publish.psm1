@@ -179,7 +179,7 @@ function Publish-Deliverables
 					
 					$projNupkgFiles | % {
 						Write-Host ("Publish-Nupkg --> $($_.FullName) $($nugetPath)")
-						#Publish-Nupkg "$($_.FullName)" "$nugetPath"
+						Publish-Nupkg $_.FullName $nugetPath
 					}
 				}
 				else
