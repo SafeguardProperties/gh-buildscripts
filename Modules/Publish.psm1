@@ -174,8 +174,11 @@ function Publish-Deliverables
 				
 				if($projNupkgFiles -ne $null)
 				{
+					#get the path to the nuget.exe and create the nugetpackage
+					$nugetPath = Join-Path (Get-Item $PSScriptRoot).parent.FullName "Nuget"
+					
 					$projNupkgFiles | % {
-						Write-Error ("Publish-Nupkg --> $($_.FullName) $($nugetPath)")
+						Write-Host ("Publish-Nupkg --> $($_.FullName) $($nugetPath)")
 						#Publish-Nupkg "$($_.FullName)" "$nugetPath"
 					}
 				}
