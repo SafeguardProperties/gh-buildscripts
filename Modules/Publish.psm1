@@ -124,23 +124,25 @@ function Publish-Deliverables
 		#*****************************************
 		if(Test-Path $projectBinPath)
 		{
-			$assemblyInfoExists = Test-Path $assemblyInfoCsPath
-			
 			$appGuid = ""
 			if(-not ([string]::IsNullOrEmpty($SlnPath)) -and $assemblyInfoExists -eq $true)
 			{
 				#get the assembly guid
 				$assemblyInfoCsPath = Join-Path (Join-Path $SlnPath $appSourceDirectory) "Properties\AssemblyInfo.cs"
-				Write-Host "Publish-Deliverables --> assemblyInfoCsPath - `"$($assemblyInfoCsPath)`""
-				$appGuid = Get-AssemblyInfoGuid $assemblyInfoCsPath			
 				
-				#examine packages.config (if it exists) to determine if any prerelease packages have been referenced
-				$preReleaseNugetReferences = $false
-				$packagesConfigPath = Join-Path (Join-Path $SlnPath $appSourceDirectory) "packages.config"
-				if(Test-Path $packagesConfigPath)
+				if(Test-Path $assemblyInfoCsPath)
 				{
-					$packagesConfigXdoc = [System.Xml.Linq.XDocument]::Load($packagesConfigPath)
-					$preReleaseNugetReferences = ($packagesConfigXdoc.Element("packages").Elements("package") | ? { $_.Attribute("version").Value.Contains("-pre") }) -ne $null	  
+					Write-Host "Publish-Deliverables --> assemblyInfoCsPath - `"$($assemblyInfoCsPath)`""
+					$appGuid = Get-AssemblyInfoGuid $assemblyInfoCsPath			
+					
+					#examine packages.config (if it exists) to determine if any prerelease packages have been referenced
+					$preReleaseNugetReferences = $false
+					$packagesConfigPath = Join-Path (Join-Path $SlnPath $appSourceDirectory) "packages.config"
+					if(Test-Path $packagesConfigPath)
+					{
+						$packagesConfigXdoc = [System.Xml.Linq.XDocument]::Load($packagesConfigPath)
+						$preReleaseNugetReferences = ($packagesConfigXdoc.Element("packages").Elements("package") | ? { $_.Attribute("version").Value.Contains("-pre") }) -ne $null	  
+					}
 				}
 			}
 			
