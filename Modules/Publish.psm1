@@ -153,10 +153,17 @@ function Publish-Deliverables
 				#################################################
 				
 				#if nupkg has been created from build, use it
-				$projNupkgFiles = Get-ChildItem (Join-Path (Join-Path $SlnPath $appSourceDirectory) "bin\Release") -filter "*.nupkg"
-				if($projNupkgFiles -eq $null)
+				$releaseDir = (Join-Path (Join-Path $SlnPath $appSourceDirectory) "bin\Release")
+				$debugDir = (Join-Path (Join-Path $SlnPath $appSourceDirectory) "bin\Debug")
+				
+				$projNupkgFiles = $null
+				if(Test-Path $releaseDir)
 				{
-					$projNupkgFiles = Get-ChildItem (Join-Path (Join-Path $SlnPath $appSourceDirectory) "bin\Debug") -filter "*.nupkg"
+					$projNupkgFiles = Get-ChildItem $releaseDir -filter "*.nupkg"
+				}
+				else if($projNupkgFiles -eq $null -and Test-Path $debugDir)
+				{
+					$projNupkgFiles = Get-ChildItem $debugDir -filter "*.nupkg"
 				}
 				
 				if($projNupkgFiles -ne $null)
