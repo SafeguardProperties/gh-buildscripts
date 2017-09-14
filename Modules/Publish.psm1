@@ -175,7 +175,7 @@ function Publish-Deliverables
 				if($projNupkgFiles -ne $null)
 				{
 					$projNupkgFiles | % {
-						Publish-Nupkg "$_.FullName" "$nugetPath"
+						Publish-Nupkg "$($_.FullName)" "$nugetPath"
 					}
 				}
 				else
