@@ -124,8 +124,10 @@ function Publish-Deliverables
 		#*****************************************
 		if(Test-Path $projectBinPath)
 		{
+			$assemblyInfoExists = Test-Path $assemblyInfoCsPath
+			
 			$appGuid = ""
-			if(-not ([string]::IsNullOrEmpty($SlnPath)))
+			if(-not ([string]::IsNullOrEmpty($SlnPath)) -and $assemblyInfoExists -eq $true)
 			{
 				#get the assembly guid
 				$assemblyInfoCsPath = Join-Path (Join-Path $SlnPath $appSourceDirectory) "Properties\AssemblyInfo.cs"
@@ -148,47 +150,62 @@ function Publish-Deliverables
 				##  Publish NuGet
 				#################################################
 				
-				#don't allow release nuget packages to contain prerelease references
-				if($preReleaseNugetReferences -and -not $isNugetPrerelease)
+				#if nupkg has been created from build, use it
+				$projNupkgFiles = Get-ChildItem (Join-Path (Join-Path $SlnPath $appSourceDirectory) "bin\Release") -filter "*.nupkg"
+				if($projNupkgFiles -eq $null)
 				{
-					Write-Error ("Publish-Deliverables --> Release NuGet packages may not contain Pre-release NuGet packages references.")
-					exit 1
+					$projNupkgFiles = Get-ChildItem (Join-Path (Join-Path $SlnPath $appSourceDirectory) "bin\Debug") -filter "*.nupkg"
 				}
 				
-				
-				$projNuspecFiles = $null
-				if(-not ([string]::IsNullOrEmpty($SlnPath)))
+				if($projNupkgFiles -ne $null)
 				{
-					#validate a nuspec file exists and copy it to the bin path (it will be packaged at this location)
-					$projNuspecFiles = Get-ChildItem (Join-Path $SlnPath $appSourceDirectory) -filter "*.nuspec"
-				}
-				else
-				{
-					$projNuspecFiles = Get-ChildItem (Join-Path $BinRootPath $appSourceDirectory) -filter "*.nuspec"
-				}
-				
-				if($projNuspecFiles -eq $null)
-				{
-					$projectRootPath = (Join-Path $SlnPath $appSourceDirectory)
-					Write-Error ("Publish-Deliverables --> Deliverables.xml specified project ($($projectName)) as type NUGET, but no nuspec file(s) found at: $($projectRootPath)")
-					exit 1
-				}
-				else
-				{
-					if(-not ([string]::IsNullOrEmpty($SlnPath)))
-					{
-						$projNuspecFiles | % {
-							Copy-Item $_.FullName -Destination $projectBinPath -Force
-						}
+					$projNupkgFiles | % {
+						Publish-Nupkg "$_.FullName" "$nugetPath"
 					}
 				}
-				
-				#get the path to the nuget.exe and create the nugetpackage
-				$nugetPath = Join-Path (Get-Item $PSScriptRoot).parent.FullName "Nuget"
-				
-				Write-Host "Publish-NugetPackage $($projectBinPath) $($nugetPath) $($Version) "
-				
-				Publish-NugetPackage "$projectBinPath" "$nugetPath" $Version
+				else
+				{
+					#don't allow release nuget packages to contain prerelease references
+					if($preReleaseNugetReferences -and -not $isNugetPrerelease)
+					{
+						Write-Error ("Publish-Deliverables --> Release NuGet packages may not contain Pre-release NuGet packages references.")
+						exit 1
+					}
+					
+					$projNuspecFiles = $null
+					if(-not ([string]::IsNullOrEmpty($SlnPath)))
+					{
+						#validate a nuspec file exists and copy it to the bin path (it will be packaged at this location)
+						$projNuspecFiles = Get-ChildItem (Join-Path $SlnPath $appSourceDirectory) -filter "*.nuspec"
+					}
+					else
+					{
+						$projNuspecFiles = Get-ChildItem (Join-Path $BinRootPath $appSourceDirectory) -filter "*.nuspec"
+					}
+					
+					if($projNuspecFiles -eq $null)
+					{
+						$projectRootPath = (Join-Path $SlnPath $appSourceDirectory)
+						Write-Error ("Publish-Deliverables --> Deliverables.xml specified project ($($projectName)) as type NUGET, but no nuspec file(s) found at: $($projectRootPath)")
+						exit 1
+					}
+					else
+					{
+						if(-not ([string]::IsNullOrEmpty($SlnPath)))
+						{
+							$projNuspecFiles | % {
+								Copy-Item $_.FullName -Destination $projectBinPath -Force
+							}
+						}
+					}
+					
+					#get the path to the nuget.exe and create the nugetpackage
+					$nugetPath = Join-Path (Get-Item $PSScriptRoot).parent.FullName "Nuget"
+					
+					Write-Host "Publish-NugetPackage $($projectBinPath) $($nugetPath) $($Version) "
+					
+					Publish-NugetPackage "$projectBinPath" "$nugetPath" $Version
+				}
 			}
 			else 
 			{				

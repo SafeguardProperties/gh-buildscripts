@@ -97,3 +97,37 @@ function Publish-NugetPackage
         Move-Item $backupFile $file -Force
     }    
 }
+
+function Publish-Nupkg
+{
+	Param
+	(
+	[string]$NupkgFilePath,
+	[string]$NugetPath
+	)
+  
+	$nupkgFile = Get-ChildItem $NupkgFilePath
+  
+	#nuget push
+	$ps = new-object System.Diagnostics.Process
+	$ps.StartInfo.Filename = Join-Path $NugetPath "nuget.exe"
+	$ps.StartInfo.Arguments = "push -Source `"https://source.sgpdev.com/tfs/SGPD/_packaging/SafeguardDevelopment/nuget/v3/index.json`" -ApiKey VSTS `"$nupkgFile`""
+	$ps.StartInfo.WorkingDirectory = $nupkgFile.Directory.FullName
+	$ps.StartInfo.RedirectStandardOutput = $True
+	$ps.StartInfo.RedirectStandardError = $True
+	$ps.StartInfo.UseShellExecute = $false
+	$ps.start()
+	if(!$ps.WaitForExit(30000)) 
+	{
+		$ps.Kill()
+	}
+
+	[string] $Out = $ps.StandardOutput.ReadToEnd();
+	[string] $ErrOut = $ps.StandardError.ReadToEnd();
+	Write-Host "Nuget push Output of commandline $($ps.StartInfo.Filename) $($ps.StartInfo.Arguments)"        
+	if ($ErrOut -ne "") 
+	{
+		Write-Error "Nuget push Errors"
+		Write-Error $ErrOut
+	}
+}
