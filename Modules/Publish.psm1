@@ -161,9 +161,15 @@ function Publish-Deliverables
 				{
 					$projNupkgFiles = Get-ChildItem $releaseDir -filter "*.nupkg"
 				}
-				elseif($projNupkgFiles -eq $null -and Test-Path $debugDir)
+				else
 				{
-					$projNupkgFiles = Get-ChildItem $debugDir -filter "*.nupkg"
+					if($projNupkgFiles -eq $null)
+					{
+						if(Test-Path $debugDir)
+						{
+							$projNupkgFiles = Get-ChildItem $debugDir -filter "*.nupkg"
+						}
+					}
 				}
 				
 				if($projNupkgFiles -ne $null)
