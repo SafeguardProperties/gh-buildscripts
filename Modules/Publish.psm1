@@ -125,7 +125,7 @@ function Publish-Deliverables
 		if(Test-Path $projectBinPath)
 		{
 			$appGuid = ""
-			if(-not ([string]::IsNullOrEmpty($SlnPath)) -and $assemblyInfoExists -eq $true)
+			if(-not ([string]::IsNullOrEmpty($SlnPath)))
 			{
 				#get the assembly guid
 				$assemblyInfoCsPath = Join-Path (Join-Path $SlnPath $appSourceDirectory) "Properties\AssemblyInfo.cs"
