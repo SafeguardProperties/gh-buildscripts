@@ -52,18 +52,23 @@ function Get-BaseTypes
 	$assemblyFiles = Get-ChildItem "$($Path)" -filter "*.dll"
 	foreach($file in $assemblyFiles)
 	{
-		#read assembly definitions
-		$assemblyDefinition = [Mono.Cecil.AssemblyDefinition]::ReadAssembly($file.FullName)
-		$assemblyTypes = $assemblyDefinition.MainModule.GetTypes()
-		foreach($type in $assemblyTypes)
+		try
 		{
-			if($type.BaseType -ne $null)
+			#read assembly definitions
+			$assemblyDefinition = [Mono.Cecil.AssemblyDefinition]::ReadAssembly($file.FullName)
+			$assemblyTypes = $assemblyDefinition.MainModule.GetTypes()
+			foreach($type in $assemblyTypes)
 			{
-				if($type.BaseType.Name -eq $BaseTypeName)
+				if($type.BaseType -ne $null)
 				{
-					$returnValue += $type.Name
+					if($type.BaseType.Name -eq $BaseTypeName)
+					{
+						$returnValue += $type.Name
+					}
 				}
 			}
+		} catch {
+			Write-Host $_ 
 		}
 	}
 
