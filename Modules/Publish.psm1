@@ -74,7 +74,7 @@ function Publish-Deliverables
 		{
 			Write-Host "Executing Remove-S3Object -ProfileName BuildService -BucketName sgpdevelopedsoftware -Key `"$($eo.Key)`""	
 			#todo Remove-S3Object here
-			Remove-S3Object -ProfileName BuildService -BucketName sgpdevelopedsoftware -Key "$($eo.Key)"
+			Remove-S3Object -Force -ProfileName BuildService -BucketName sgpdevelopedsoftware -Key "$($eo.Key)"
 		}
 	}
 
