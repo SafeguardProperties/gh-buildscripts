@@ -271,8 +271,18 @@ function Publish-Deliverables
                             $dropFolder = "Development"
                         }
 
-                        Write-Host "Write-S3Object -ProfileName BuildService -BucketName sgpdevelopedsoftware -File $($msiPath) -Key `"$($dropFolder)/$($env:BUILD_DEFINITIONNAME)/$($appName)_v$($version)$($preTag).msi`""
+						#only when DEV, remove any existing (TODO)
+						if ($dropFolder -eq "Development")
+						{
+							$existingObjects = Get-S3Object -ProfileName BuildService -BucketName sgpdevelopedsoftware -KeyPrefix "$($dropFolder)/$($env:BUILD_DEFINITIONNAME)/"
+							foreach($eo in $existingObjects)
+							{
+								Write-Host "TODO Remove Existing S3 key: $($eo.Key)"	
+								#todo Remove-S3Object here
+							}
+						}
 
+						Write-Host "Write-S3Object -ProfileName BuildService -BucketName sgpdevelopedsoftware -File $($msiPath) -Key `"$($dropFolder)/$($env:BUILD_DEFINITIONNAME)/$($appName)_v$($version)$($preTag).msi`""
                         Write-S3Object -ProfileName BuildService -BucketName sgpdevelopedsoftware -File $msiPath -Key "$($dropFolder)/$($env:BUILD_DEFINITIONNAME)/$($appName)_v$($version)$($preTag).msi"
 				}
 				else
