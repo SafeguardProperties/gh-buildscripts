@@ -72,9 +72,9 @@ function Publish-Deliverables
 		$existingObjects = Get-S3Object -ProfileName BuildService -BucketName sgpdevelopedsoftware -KeyPrefix "Development/$($env:BUILD_DEFINITIONNAME)/"
 		foreach($eo in $existingObjects)
 		{
-			Write-Host "TODO Remove-S3Object -ProfileName BuildService -BucketName sgpdevelopedsoftware -Key `"$($eo.Key)`""	
+			Write-Host "Executing Remove-S3Object -ProfileName BuildService -BucketName sgpdevelopedsoftware -Key `"$($eo.Key)`""	
 			#todo Remove-S3Object here
-			
+			Remove-S3Object -ProfileName BuildService -BucketName sgpdevelopedsoftware -Key "$($eo.Key)"
 		}
 	}
 
