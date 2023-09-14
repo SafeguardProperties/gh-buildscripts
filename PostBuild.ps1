@@ -53,6 +53,43 @@ if($solutionFiles.Count -ne 0)
 
 #******************************************************************************************************************* 
 
+ echo "=================================="
+echo "Scan file copy"
+echo "=================================="
+
+$searchfilepath = $env:BUILD_SOURCESDIRECTORY + "\scanfiles.txt"
+$filepath = $env:BUILD_STAGINGDIRECTORY
+$repoName = $env:BUILD_DEFINITIONNAME
+$DestinationDir = "E:\ScanFiles\" + $repoName
+
+
+if(Test-Path $searchfilepath){
+echo "Scan file found, copying..."
+If(!(test-path -PathType container $DestinationDir))
+{
+
+New-Item -ItemType Directory -Path $DestinationDir
+
+}else
+{
+ Remove-Item -Path $DestinationDir\* -Recurse
+}
+
+$files=Get-Content $searchfilepath
+ForEach($file in $files){
+$copyfile = Get-ChildItem $filepath -include *.dll, *.pdb -Recurse |where{$_.name -match $($file)} | ? { $_.FullName -inotmatch '_Published' } | Copy-Item  -Destination "$DestinationDir"
+}
+echo "File copy complete"
+echo "=================================="
+
+}else
+{
+echo "No scan file, skipping copy"
+echo "=================================="
+} 
+
+
+
 if($isDevBuild)
 {
     $deployScriptRoot = Join-Path (Get-Item $PSScriptRoot).Parent.FullName "Tfs-DeployScripts\"
