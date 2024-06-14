@@ -1,12 +1,13 @@
- #get script root path
+ # get script root path
 $PSScriptRoot = Split-Path -Parent -Path $MyInvocation.MyCommand.Definition
 
+# setup variables
 Write-Host "Script Root: $($PSScriptRoot)" 
 Write-Host "Repository Checkoout Path: $($env:REPO_CHECKOUT_PATH)"
 Write-Host "Version: $($env:RELEASE_VERSION_ONLY)"
 $versionOnly = $env:RELEASE_VERSION_ONLY
 
-#update AssemblyInfo(s) so the built version matches the version tag
+# update AssemblyInfo(s) so the built version matches the version tag
 $assemblyInfoFiles = Get-ChildItem $env:REPO_CHECKOUT_PATH AssemblyInfo.cs -recurse
 foreach ($file in $assemblyInfoFiles) 
 { 
