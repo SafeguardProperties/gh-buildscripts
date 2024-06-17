@@ -66,17 +66,17 @@ function Publish-Deliverables
 	    exit 0
     }
 	
-	#only when DEV, remove any existing objects from drop
-	if(($env:BUILD_DEFINITIONNAME).StartsWith("DEV -") -eq $true)
-	{
-		$existingObjects = Get-S3Object -ProfileName BuildService -BucketName sgpdevelopedsoftware -KeyPrefix "Development/$($env:BUILD_DEFINITIONNAME)/"
-		foreach($eo in $existingObjects)
-		{
-			Write-Host "Executing Remove-S3Object -ProfileName BuildService -BucketName sgpdevelopedsoftware -Key `"$($eo.Key)`""	
-			#todo Remove-S3Object here
-			Remove-S3Object -Force -ProfileName BuildService -BucketName sgpdevelopedsoftware -Key "$($eo.Key)"
-		}
-	}
+#	#only when DEV, remove any existing objects from drop
+#	if(($env:BUILD_DEFINITIONNAME).StartsWith("DEV -") -eq $true)
+#	{
+#		$existingObjects = Get-S3Object -ProfileName BuildService -BucketName sgpdevelopedsoftware -KeyPrefix "Development/$($env:BUILD_DEFINITIONNAME)/"
+#		foreach($eo in $existingObjects)
+#		{
+#			Write-Host "Executing Remove-S3Object -ProfileName BuildService -BucketName sgpdevelopedsoftware -Key `"$($eo.Key)`""	
+#			#todo Remove-S3Object here
+#			Remove-S3Object -Force -ProfileName BuildService -BucketName sgpdevelopedsoftware -Key "$($eo.Key)"
+#		}
+#	}
 
 	#parse Deliverables.xml
 	[Reflection.Assembly]::LoadWithPartialName("System.Xml.Linq") | Out-Null
@@ -118,8 +118,9 @@ function Publish-Deliverables
 			$csProjFile = Get-ChildItem (Join-Path $SlnPath $appSourceDirectory) -filter "*.csproj"
 			if($csProjFile -ne $null -and $csProjFile.Name -ne $null -and $csProjFile.Name.Length -gt 0)
 			{
-				$projectName = $csProjFile.Name.Replace(".csproj", [string]::Empty)
-				$projectBinPath = Join-Path $BinRootPath $projectName
+				#$projectName = $csProjFile.Name.Replace(".csproj", [string]::Empty)
+				#$projectBinPath = Join-Path (Join-Path $BinRootPath $projectName) "bin\Release"
+                $projectBinPath = Join-Path (Join-Path $BinRootPath $appSourceDirectory) "bin\Release"
 			}
 		}
 
@@ -278,13 +279,41 @@ function Publish-Deliverables
 				if(Test-Path "$($msiPath)")
 				{
                         $dropFolder = "Release"
-                        if(($env:BUILD_DEFINITIONNAME).StartsWith("DEV -") -eq $true)
-                        {
-                            $dropFolder = "Development"
-                        }
+                        #if(($env:BUILD_DEFINITIONNAME).StartsWith("DEV -") -eq $true)
+                        #{
+                        #    $dropFolder = "Development"
+                        #}
 
-						Write-Host "Write-S3Object -ProfileName BuildService -BucketName sgpdevelopedsoftware -File $($msiPath) -Key `"$($dropFolder)/$($env:BUILD_DEFINITIONNAME)/$($appName)_v$($version)$($preTag).msi`""
-						Write-S3Object -ProfileName BuildService -BucketName sgpdevelopedsoftware -File $msiPath -Key "$($dropFolder)/$($env:BUILD_DEFINITIONNAME)/$($appName)_v$($version)$($preTag).msi"
+						#Write-Host "TODO THIS IS NOT REAL YET --> Write-S3Object -ProfileName BuildService -BucketName sgpdevelopedsoftware -File $($msiPath) -Key `"$($dropFolder)/$($env:REPOSITORY)/$($appName)_v$($version)$($preTag).msi`""
+						#Write-S3Object -ProfileName BuildService -BucketName sgpdevelopedsoftware -File $msiPath -Key "$($dropFolder)/$($env:BUILD_DEFINITIONNAME)/$($appName)_v$($version)$($preTag).msi"
+                        
+                        # copy to s3
+                        Write-Host "Copy MSI to S3 - Source: $($msiPath) - Destination: s3://sgpdevelopedsoftware/$($dropFolder)/$($env:REPOSITORY)/$($appName)_v$($version)$($preTag).msi"
+                        aws s3 cp "$($msiPath)" "s3://sgpdevelopedsoftware/$($dropFolder)/$($env:REPOSITORY)/$($appName)_v$($version)$($preTag).msi"
+
+                        # deploy
+                        #Write-Host "Deploy to DEV - $($etcdCmdSetVersionPath) $($env:REPOSITORY) $($appName) $($version)"
+                        $etcdCmdSetVersionPath = "C:\gh-buildscripts\Tool\EtcdCmdSetVersion\EtcdCmdSetVersion.exe"
+	                    $ps = new-object System.Diagnostics.Process
+	                    $ps.StartInfo.Filename = $etcdCmdSetVersionPath
+	                    $ps.StartInfo.Arguments = "$($env:REPOSITORY) $($appName) $($version)"
+	                    $ps.StartInfo.RedirectStandardOutput = $True
+	                    $ps.StartInfo.RedirectStandardError = $True
+	                    $ps.StartInfo.UseShellExecute = $false
+	                    $ps.start()
+	                    if(!$ps.WaitForExit(30000)) 
+	                    {
+		                    $ps.Kill()
+	                    }
+	                    [string] $Out = $ps.StandardOutput.ReadToEnd();
+	                    [string] $ErrOut = $ps.StandardError.ReadToEnd();
+	                    Write-Host "EtcdCmdSetVersion Output of commandline $($ps.StartInfo.Filename) $($ps.StartInfo.Arguments)"        
+	                    if ($ErrOut -ne "") 
+	                    {
+		                    Write-Error "EtcdCmdSetVersion Errors"
+		                    Write-Error $ErrOut
+	                    }
+                        Write-Host $Out
 				}
 				else
 				{

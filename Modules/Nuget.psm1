@@ -64,14 +64,17 @@ function Publish-NugetPackage
         }
 		else
 		{
+            # nuget config file
+            $nugetConfigFile = Join-Path $env:REPO_CHECKOUT_PATH ".nuget/NuGet.config"
+
 			#move the resulting package to the output directory
 			$allNugetPackageFiles = Get-ChildItem (Join-Path $SrcPath *.nupkg)
 			foreach($nupkgFile in $allNugetPackageFiles)
 			{
                 #nuget push
                 $ps = new-object System.Diagnostics.Process
-                $ps.StartInfo.Filename = Join-Path $NugetPath "nuget.exe"
-                $ps.StartInfo.Arguments = "push -Source `"https://source.sgpdev.com/tfs/SGPD/_packaging/SafeguardDevelopment/nuget/v3/index.json`" -ApiKey VSTS `"$nupkgFile`""
+                $ps.StartInfo.Filename = "nuget" #Join-Path $NugetPath "nuget.exe"
+                $ps.StartInfo.Arguments = "push -Source sgpd/Net45 -ConfigFile $nugetConfigFile `"$nupkgFile`""
                 $ps.StartInfo.WorkingDirectory = $nupkgFile.Directory.FullName
                 $ps.StartInfo.RedirectStandardOutput = $True
                 $ps.StartInfo.RedirectStandardError = $True
@@ -110,8 +113,8 @@ function Publish-Nupkg
   
 	#nuget push
 	$ps = new-object System.Diagnostics.Process
-	$ps.StartInfo.Filename = Join-Path $NugetPath "nuget.exe"
-	$ps.StartInfo.Arguments = "push -Source `"https://source.sgpdev.com/tfs/SGPD/_packaging/SafeguardDevelopment/nuget/v3/index.json`" -ApiKey VSTS `"$nupkgFile`""
+	$ps.StartInfo.Filename = "nuget" #Join-Path $NugetPath "nuget.exe"
+	$ps.StartInfo.Arguments = "push -Source github -ApiKey $env:GITHUB_TOKEN `"$nupkgFile`""
 	$ps.StartInfo.WorkingDirectory = $nupkgFile.Directory.FullName
 	$ps.StartInfo.RedirectStandardOutput = $True
 	$ps.StartInfo.RedirectStandardError = $True

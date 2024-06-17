@@ -69,7 +69,8 @@ param(
 
 	$handlerNames = $handlerNames.Replace(" ", [string]::Empty)
 	
-    $PSScriptRoot = Split-Path -Path $script:MyInvocation.MyCommand.Path
+    #$PSScriptRoot = Split-Path -Path $script:MyInvocation.MyCommand.Path
+    $PSScriptRoot = "C:\gh-buildscripts\Modules\MsiScripts"
 
     $args = @()
     $args += "-a !!ApplicationName!`"$($applicationName)`""
@@ -101,7 +102,7 @@ param(
     
     candle.exe $($fragmentPath) -ext WixIisExtension -out $($wixobjPath)
     
-    light.exe $($wixobjPath) -ext WixIisExtension -out $($msiPath)
+    light.exe $($wixobjPath) -ext WixIisExtension -out $($msiPath) -sval
 	
 	#cleanup
 	#Get-ChildItem -path $outputDir -filter "$($applicationName)_v$($version)*" | ? { $_.Extension.ToLower() -ne ".msi" } | Remove-Item -Force

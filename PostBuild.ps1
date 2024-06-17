@@ -1,3 +1,7 @@
+# fake fake fake
+#$env:REPO_CHECKOUT_PATH = "C:\actions-runner\_work\SPINext-WorkHandler-Utility\SPINext-WorkHandler-Utility"
+#$env:RELEASE_VERSION_ONLY = "1.0.1"
+
 #setup output folders
 $outputRoot = "C:\WixBuilds\"
 
@@ -18,7 +22,7 @@ $version = $env:RELEASE_VERSION_ONLY
 # $PSScriptRoot = Split-Path -Parent -Path $MyInvocation.MyCommand.Definition
 
 # #import build modules
-# Import-Module -Force "$($PSScriptRoot)\Modules\_ImportBuildModules.psm1"
+Import-Module -Force "$($PSScriptRoot)\Modules\_ImportBuildModules.psm1"
 
 # $REGEX_PATTERN_VERSION = '^[v]([0-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-4])\.([0-9]{1,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-4])\.([0-9]{1,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-4])$'
 # $REGEX_PATTERN_VERSION_NUGET_PRE = '^[v]([0-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-4])\.([0-9]{1,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-4])\.([0-9]{1,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-4])(-pre)(00[1-9]|0[1-9][0-9]|[1-9][0-9][0-9])$'
@@ -53,54 +57,6 @@ if($solutionFiles.Count -ne 0)
 	$solutionFiles | % {	
         #$binRootPath = $Env:BUILD_ARTIFACTSTAGINGDIRECTORY #Join-Path $Env:BUILD_ARTIFACTSTAGINGDIRECTORY "drop"
         Write-Host "Publish-Deliverables -SlnPath `"$($env:REPO_CHECKOUT_PATH)`" -BinRootPath `"$($env:REPO_CHECKOUT_PATH)`" -Version $($version) -OutputRootPath `"$($fullOutputRootPath)`""
-        #Publish-Deliverables -SlnPath "$($_.DirectoryName)" -BinRootPath "$($binRootPath)" -Version $version -OutputRootPath "$($fullOutputRootPath)"
+        Publish-Deliverables -SlnPath "$($_.DirectoryName)" -BinRootPath "$($env:REPO_CHECKOUT_PATH)" -Version $version -OutputRootPath "$($fullOutputRootPath)"
 	}
 }
-
-#******************************************************************************************************************* 
-
-#  echo "=================================="
-# echo "Scan file copy"
-# echo "=================================="
-
-# $searchfilepath = $env:BUILD_SOURCESDIRECTORY + "\scanfiles.txt"
-# $filepath = $env:BUILD_STAGINGDIRECTORY
-# $repoName = $env:BUILD_DEFINITIONNAME
-# $DestinationDir = "E:\ScanFiles\" + $repoName
-
-
-# if(Test-Path $searchfilepath){
-# echo "Scan file found, copying..."
-# If(!(test-path -PathType container $DestinationDir))
-# {
-
-# New-Item -ItemType Directory -Path $DestinationDir
-
-# }else
-# {
-#  Remove-Item -Path $DestinationDir\* -Recurse
-# }
-
-# $files=Get-Content $searchfilepath
-# ForEach($file in $files){
-# $copyfile = Get-ChildItem $filepath -include *.dll, *.pdb -Recurse |where{$_.name -match $($file)} | ? { $_.FullName -inotmatch '_Published' } | Copy-Item  -Destination "$DestinationDir"
-# }
-# echo "File copy complete"
-# echo "=================================="
-
-# }else
-# {
-# echo "No scan file, skipping copy"
-# echo "=================================="
-# } 
-
-
-
-# if($isDevBuild)
-# {
-#     $deployScriptRoot = Join-Path (Get-Item $PSScriptRoot).Parent.FullName "Tfs-DeployScripts\"
-# 	$deployScriptPath = Join-Path $deployScriptRoot "Deploy.ps1"
-# 	Set-Location -Path $deployScriptRoot
-# 	$deployScriptCommand = '& "$deployScriptPath" -env "dev01" -msiRootPath "Development\$($env:BUILD_DEFINITIONNAME)"'
-# 	Invoke-Expression $deployScriptCommand
-# }

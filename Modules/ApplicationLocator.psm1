@@ -44,7 +44,7 @@ function Get-BaseTypes
 	$PSScriptRoot = Split-Path -Parent -Path $MyInvocation.MyCommand.Definition
 	$baseClassName = "PollHandlerBase"
 	#$monoPath = Join-Path (Get-Item $PSScriptRoot).parent.FullName "Mono"	
-	$monoPath = "E:\Git\Tfs-BuildScripts\Mono"	
+	$monoPath = "c:\gh-buildscripts\Mono"	
 
 	Add-Type -Path (Join-Path $monoPath "Mono.Cecil.dll")
 
