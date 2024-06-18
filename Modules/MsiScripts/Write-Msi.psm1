@@ -1,4 +1,4 @@
-<# 
+ <# 
  .Synopsis
   Creates an MSI for deliverables found in SourceDir folder
 
@@ -69,9 +69,7 @@ param(
 
 	$handlerNames = $handlerNames.Replace(" ", [string]::Empty)
 	
-    #$PSScriptRoot = Split-Path -Path $script:MyInvocation.MyCommand.Path
-    $PSScriptRoot = "C:\gh-buildscripts\Modules\MsiScripts"
-
+    $msiScriptsPath = Join-Path (Get-Item $MyInvocation.PSScriptRoot).parent.FullName "Modules\MsiScripts"	
     $args = @()
     $args += "-a !!ApplicationName!`"$($applicationName)`""
     $args += "-a !!ApplicationType!$($applicationType)"
@@ -83,7 +81,7 @@ param(
     $args += "-a !!OutputDir!`"$($outputDir)`""
 	$args += "-a !!ContainsPreReleaseNuget!$($containsPreReleaseNuget)"
 	$args += "-a !!CreateShortcut!$($createShortcut)"
-    $args += "$($PSScriptRoot)\createwxs.tt"   
+    $args += "$($msiScriptsPath)\createwxs.tt"   
 	
     $ttArgString = $args -join ' '
     $ttCommand = "TextTransform.exe $($ttArgString)"
@@ -107,4 +105,4 @@ param(
 	#cleanup
 	#Get-ChildItem -path $outputDir -filter "$($applicationName)_v$($version)*" | ? { $_.Extension.ToLower() -ne ".msi" } | Remove-Item -Force
 }
-export-modulemember -function Write-Msi
+export-modulemember -function Write-Msi 

@@ -1,4 +1,4 @@
-function Get-WorkHandlers
+ function Get-WorkHandlers
 {
 	Param
 	(
@@ -41,13 +41,10 @@ function Get-BaseTypes
 		#exit 1
 	}    
 
-	$PSScriptRoot = Split-Path -Parent -Path $MyInvocation.MyCommand.Definition
 	$baseClassName = "PollHandlerBase"
-	#$monoPath = Join-Path (Get-Item $PSScriptRoot).parent.FullName "Mono"	
-	$monoPath = "c:\gh-buildscripts\Mono"	
-
+F	$monoPath = Join-Path (Get-Item $MyInvocation.PSScriptRoot).parent.FullName "Mono"	
 	Add-Type -Path (Join-Path $monoPath "Mono.Cecil.dll")
-
+	
 	$returnValue = @()
 	$assemblyFiles = Get-ChildItem "$($Path)" -filter "*.dll"
 	foreach($file in $assemblyFiles)
@@ -75,4 +72,4 @@ function Get-BaseTypes
 	return $returnValue
 }
 
-Export-ModuleMember -function Get-WorkHandlers, Get-PollHandlers
+Export-ModuleMember -function Get-WorkHandlers, Get-PollHandlers 

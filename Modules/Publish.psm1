@@ -1,4 +1,4 @@
-function Publish-Deliverables
+ function Publish-Deliverables
 {
     Param
     (
@@ -293,7 +293,7 @@ function Publish-Deliverables
 
                         # deploy
                         #Write-Host "Deploy to DEV - $($etcdCmdSetVersionPath) $($env:REPOSITORY) $($appName) $($version)"
-                        $etcdCmdSetVersionPath = "C:\gh-buildscripts\Tool\EtcdCmdSetVersion\EtcdCmdSetVersion.exe"
+                        $etcdCmdSetVersionPath = Join-Path $($MyInvocation.PSScriptRoot) "Tool\EtcdCmdSetVersion\EtcdCmdSetVersion.exe"
 	                    $ps = new-object System.Diagnostics.Process
 	                    $ps.StartInfo.Filename = $etcdCmdSetVersionPath
 	                    $ps.StartInfo.Arguments = "$($env:REPOSITORY) $($appName) $($version)"
@@ -307,7 +307,7 @@ function Publish-Deliverables
 	                    }
 	                    [string] $Out = $ps.StandardOutput.ReadToEnd();
 	                    [string] $ErrOut = $ps.StandardError.ReadToEnd();
-	                    Write-Host "EtcdCmdSetVersion Output of commandline $($ps.StartInfo.Filename) $($ps.StartInfo.Arguments)"        
+	                    Write-Host "Execute: $($ps.StartInfo.Filename) $($ps.StartInfo.Arguments)"        
 	                    if ($ErrOut -ne "") 
 	                    {
 		                    Write-Error "EtcdCmdSetVersion Errors"
@@ -334,4 +334,4 @@ function Publish-Deliverables
 }
 
 #########################################
-Export-ModuleMember -function Publish-Deliverables
+Export-ModuleMember -function Publish-Deliverables 
