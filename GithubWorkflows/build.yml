@@ -53,8 +53,8 @@ jobs:
           $scriptsBuildYml = Join-Path $env:BUILD_SCRIPTS_PATH "GithubWorkflows\build.yml"
 
           if ((Test-Path -Path $mainBuildYml -PathType Leaf) -and (Test-Path -Path $scriptsBuildYml -PathType Leaf)) {
-              $mainContent = Get-Content -Path $mainBuildYml -Raw
-              $scriptsContent = Get-Content -Path $scriptsBuildYml -Raw
+              $mainContent = Get-Content -Path $mainBuildYml -Raw -replace "`r"
+              $scriptsContent = Get-Content -Path $scriptsBuildYml -Raw -replace "`r"
               if ($mainContent -ne $scriptsContent) {
                   Write-Error "build.yml does not match gh-buildscripts\GithubWorkflows\buildyml"
                   exit 1
