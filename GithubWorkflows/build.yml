@@ -47,6 +47,23 @@ jobs:
           echo "REPOSITORY: $env:REPOSITORY"
           echo "RELEASE_VERSION: $env:RELEASE_VERSION"
 
+      - name: Compare build.yml files
+        run: |
+          $mainBuildYml = Join-Path $env:REPO_CHECKOUT_PATH ".github\workflows\build.yml"
+          $scriptsBuildYml = Join-Path $env:BUILD_SCRIPTS_PATH "GithubWorkflows\build.yml"
+
+          if ((Test-Path -Path $mainBuildYml -PathType Leaf) -and (Test-Path -Path $scriptsBuildYml -PathType Leaf)) {
+              $mainContent = Get-Content -Path $mainBuildYml -Raw
+              $scriptsContent = Get-Content -Path $scriptsBuildYml -Raw
+              if ($mainContent -ne $scriptsContent) {
+                  Write-Error "build.yml does not match gh-buildscripts\GithubWorkflows\buildyml"
+                  exit 1
+              }
+          } else {
+              Write-Error "One or both of the build.yml files are missing."
+              exit 1
+          }
+
       - name: Create .nuget folder if required
         run: |
           if (-Not (Test-Path -Path ".nuget")) { New-Item -ItemType Directory -Path ".nuget" }
