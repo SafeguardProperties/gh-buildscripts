@@ -55,7 +55,6 @@ Write-Host "sln count: $($solutionFiles.Count)"
 if($solutionFiles.Count -ne 0)
 {
 	$solutionFiles | % {	
-        #$binRootPath = $Env:BUILD_ARTIFACTSTAGINGDIRECTORY #Join-Path $Env:BUILD_ARTIFACTSTAGINGDIRECTORY "drop"
         Write-Host "Publish-Deliverables -SlnPath `"$($env:REPO_CHECKOUT_PATH)`" -BinRootPath `"$($env:REPO_CHECKOUT_PATH)`" -Version $($version) -OutputRootPath `"$($fullOutputRootPath)`""
         Publish-Deliverables -SlnPath "$($_.DirectoryName)" -BinRootPath "$($env:REPO_CHECKOUT_PATH)" -Version $version -OutputRootPath "$($fullOutputRootPath)"
 	}
