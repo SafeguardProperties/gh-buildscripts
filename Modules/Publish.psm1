@@ -281,14 +281,16 @@
                         $dropFolder = "Release"
                         
                         # copy to s3
-                        #Write-Host "Copy MSI to S3 - Source: $($msiPath) - Destination: s3://sgpdevelopedsoftware/$($dropFolder)/$($env:REPOSITORY)/$($appName)_v$($version)$($preTag).msi"
-                        $awsS3cmd = "aws s3 cp `"$($msiPath)`" `"s3://sgpdevelopedsoftware/$($dropFolder)/$($env:REPOSITORY)/$($appName)_v$($version)$($preTag).msi`"
-						Write-Host "Executing: $($awsS3cmd)"
-						Invoke-Expression $command
+                        Write-Host "Copy MSI to S3 - Source: $($msiPath) - Destination: s3://sgpdevelopedsoftware/$($dropFolder)/$($env:REPOSITORY)/$($appName)_v$($version)$($preTag).msi"
+                        $s3Dest = "s3://sgpdevelopedsoftware/$($dropFolder)/$($env:REPOSITORY)/$($appName)_v$($version)$($preTag).msi"
+						#aws s3 cp "$($msiPath)" "s3://sgpdevelopedsoftware/$($dropFolder)/$($env:REPOSITORY)/$($appName)_v$($version)$($preTag).msi"
+						$s3CopyCommand = "aws s3 cp `"$msiPath`" `"$s3Dest`""
+						Invoke-Expression $s3CopyCommand
 						if ($LASTEXITCODE -ne 0) {
 							Write-Error "AWS S3 copy command failed with exit code $LASTEXITCODE"
 							exit 1
 						} 
+
 
                         # deploy
                         #Write-Host "Deploy to DEV - $($etcdCmdSetVersionPath) $($env:REPOSITORY) $($appName) $($version)"
