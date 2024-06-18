@@ -55,6 +55,11 @@ jobs:
           if ((Test-Path -Path $mainBuildYml -PathType Leaf) -and (Test-Path -Path $scriptsBuildYml -PathType Leaf)) {
               $mainContent = Get-Content -Path $mainBuildYml -Raw -replace "`r"
               $scriptsContent = Get-Content -Path $scriptsBuildYml -Raw -replace "`r"
+              
+              # normalize line endings by removing carriage returns
+              $mainContent = $mainContent -replace "`r"
+              $scriptsContent = $scriptsContent -replace "`r"
+              
               if ($mainContent -ne $scriptsContent) {
                   Write-Error "build.yml does not match gh-buildscripts\GithubWorkflows\buildyml"
                   exit 1
