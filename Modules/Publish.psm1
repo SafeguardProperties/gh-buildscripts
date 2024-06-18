@@ -279,17 +279,16 @@
 				if(Test-Path "$($msiPath)")
 				{
                         $dropFolder = "Release"
-                        #if(($env:BUILD_DEFINITIONNAME).StartsWith("DEV -") -eq $true)
-                        #{
-                        #    $dropFolder = "Development"
-                        #}
-
-						#Write-Host "TODO THIS IS NOT REAL YET --> Write-S3Object -ProfileName BuildService -BucketName sgpdevelopedsoftware -File $($msiPath) -Key `"$($dropFolder)/$($env:REPOSITORY)/$($appName)_v$($version)$($preTag).msi`""
-						#Write-S3Object -ProfileName BuildService -BucketName sgpdevelopedsoftware -File $msiPath -Key "$($dropFolder)/$($env:BUILD_DEFINITIONNAME)/$($appName)_v$($version)$($preTag).msi"
                         
                         # copy to s3
-                        Write-Host "Copy MSI to S3 - Source: $($msiPath) - Destination: s3://sgpdevelopedsoftware/$($dropFolder)/$($env:REPOSITORY)/$($appName)_v$($version)$($preTag).msi"
-                        aws s3 cp "$($msiPath)" "s3://sgpdevelopedsoftware/$($dropFolder)/$($env:REPOSITORY)/$($appName)_v$($version)$($preTag).msi"
+                        #Write-Host "Copy MSI to S3 - Source: $($msiPath) - Destination: s3://sgpdevelopedsoftware/$($dropFolder)/$($env:REPOSITORY)/$($appName)_v$($version)$($preTag).msi"
+                        $awsS3cmd = "aws s3 cp `"$($msiPath)`" `"s3://sgpdevelopedsoftware/$($dropFolder)/$($env:REPOSITORY)/$($appName)_v$($version)$($preTag).msi`"
+						Write-Host "Executing: $($awsS3cmd)"
+						Invoke-Expression $command
+						if ($LASTEXITCODE -ne 0) {
+							Write-Error "AWS S3 copy command failed with exit code $LASTEXITCODE"
+							exit 1
+						} 
 
                         # deploy
                         #Write-Host "Deploy to DEV - $($etcdCmdSetVersionPath) $($env:REPOSITORY) $($appName) $($version)"
