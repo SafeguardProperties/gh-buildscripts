@@ -1,0 +1,93 @@
+name: NetFrameWork.Legacy.Build
+
+permissions:
+  id-token: write # This is required for requesting the JWT
+  contents: write  # This is required for actions/checkout
+  packages: write # to enable us to push packages.
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build:
+    runs-on: [ self-hosted, Windows, X64, Net45 ]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Checkout build scripts
+        uses: actions/checkout@v4
+        with:
+          repository: SafeguardProperties/gh-buildscripts
+          path: gh-buildscripts
+          # token: ${{ secrets.GITHUB_TOKEN }} 
+
+      - name: Setup variables
+        run: | 
+          $repoCheckoutPath = "${{ github.workspace }}"
+          $buildScriptsPath = Join-Path $repoCheckoutPath "gh-buildscripts"
+          $repository = $env:GITHUB_REPOSITORY.Split('/')[1]
+          $releaseVersion = $env:GITHUB_REF.Substring(10)
+          $releaseVersionOnly = $env:GITHUB_REF.Substring(11)
+          $codeArtifactToken = aws codeartifact get-authorization-token --domain sgpd --domain-owner 795585726412 --region us-east-1 --query authorizationToken --output text
+          Add-Content -Path $env:GITHUB_ENV -Value "RELEASE_VERSION=$releaseVersion"
+          Add-Content -Path $env:GITHUB_ENV -Value "RELEASE_VERSION_ONLY=$releaseVersionOnly"
+          Add-Content -Path $env:GITHUB_ENV -Value "REPOSITORY=$repository"
+          Add-Content -Path $env:GITHUB_ENV -Value "REPO_CHECKOUT_PATH=$repoCheckoutPath"
+          Add-Content -Path $env:GITHUB_ENV -Value "BUILD_SCRIPTS_PATH=$buildScriptsPath"
+          Add-Content -Path $env:GITHUB_ENV -Value "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}"
+          Add-Content -Path $env:GITHUB_ENV -Value "CODEARTIFACT_TOKEN=$codeArtifactToken"
+                    
+      - name: Show environment variable
+        run: |
+          echo "REPO_CHECKOUT_PATH: $env:REPO_CHECKOUT_PATH"
+          echo "REPOSITORY: $env:REPOSITORY"
+          echo "RELEASE_VERSION: $env:RELEASE_VERSION"
+
+      - name: Create .nuget folder if required
+        run: |
+          if (-Not (Test-Path -Path ".nuget")) { New-Item -ItemType Directory -Path ".nuget" }
+
+      - name: Write nuget.config file
+        run: |
+          $codeArtifactToken = $env:CODEARTIFACT_TOKEN
+          $nugetConfigContent = @"
+          <configuration>
+            <packageSources>
+              <add key="sgpd/Net45" value="https://sgpd-795585726412.d.codeartifact.us-east-1.amazonaws.com/nuget/Net45/v3/index.json" />
+            </packageSources>
+            <packageSourceCredentials>
+              <sgpd_x002F_Net45>
+                <add key="Username" value="aws" />
+                <add key="ClearTextPassword" value="$codeArtifactToken" />
+              </sgpd_x002F_Net45>
+            </packageSourceCredentials>
+          </configuration>
+          "@
+          $nugetConfigContent | Out-File -FilePath .nuget/nuget.config -Encoding utf8
+
+      - name: Setup NuGet
+        uses: nuget/setup-nuget@v1
+
+      - name: Restore NuGet packages
+        run: |
+          Get-ChildItem -Recurse -Filter *.sln | ForEach-Object {
+            nuget restore $_.FullName -ConfigFile .nuget/nuget.config
+          }
+
+      - name: Pre-Build
+        run: |
+          & "$env:BUILD_SCRIPTS_PATH\PreBuild.ps1"
+          
+      - name: Build
+        run: |
+          Get-ChildItem -Recurse -Filter *.sln | ForEach-Object {
+            msbuild $_.FullName -p:Configuration=Release /p:GenerateProjectSpecificOutputFolder=true
+          }
+
+      - name: Post-Build
+        run: |
+          & "$env:BUILD_SCRIPTS_PATH\PostBuild.ps1"
