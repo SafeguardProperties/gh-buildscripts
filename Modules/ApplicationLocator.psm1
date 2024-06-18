@@ -42,7 +42,7 @@ function Get-BaseTypes
 	}    
 
 	$baseClassName = "PollHandlerBase"
-F	$monoPath = Join-Path (Get-Item $MyInvocation.PSScriptRoot).parent.FullName "Mono"	
+ 	$monoPath = Join-Path (Get-Item $MyInvocation.PSScriptRoot).parent.FullName "Mono"	
 	Add-Type -Path (Join-Path $monoPath "Mono.Cecil.dll")
 	
 	$returnValue = @()
