@@ -24,12 +24,17 @@
 		}
 	}
 
-	if(-not $OutputRootPath -or -not (Test-Path $OutputRootPath))
+	if(-not $OutputRootPath)
     {
         Write-Error ("Publish-Deliverables --> OutputRootPath parameter is missing or directory does not exist.")
 	    exit 1
     }
-
+	if (-Not (Test-Path -Path $OutputRootPath -PathType Container)) {
+		# create OutputRootPath
+		New-Item -Path $OutputRootPath -ItemType Directory
+		Write-Host "Directory created: $directoryPath"
+	}
+	
 	if(-not $BinRootPath -or -not (Test-Path $BinRootPath))
     {
         Write-Error ("Publish-Deliverables --> BinRootPath parameter is missing or directory does not exist.")
