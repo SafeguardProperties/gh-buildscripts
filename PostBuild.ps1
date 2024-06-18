@@ -35,15 +35,15 @@ Import-Module -Force "$($PSScriptRoot)\Modules\_ImportBuildModules.psm1"
 # }
 
 
-#create destination folder if not exist
-$fullOutputRootPath = Join-Path $outputRoot $env:BUILD_DEFINITIONNAME
-if(-not (Test-Path $fullOutputRootPath))
-{
-	New-Item -path $fullOutputRootPath -type directory
-}
+# #create destination folder if not exist
+# $fullOutputRootPath = Join-Path $outputRoot $env:BUILD_DEFINITIONNAME
+# if(-not (Test-Path $fullOutputRootPath))
+# {
+# 	New-Item -path $fullOutputRootPath -type directory
+# }
 
-$fullOutputRootPathFiles = Join-Path $fullOutputRootPath "\*"
-Remove-Item $fullOutputRootPathFiles
+# $fullOutputRootPathFiles = Join-Path $fullOutputRootPath "\*"
+# Remove-Item $fullOutputRootPathFiles
 
 #******************************************************************************************************************* 
 
