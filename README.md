@@ -1,0 +1,11 @@
+  - GitHub self-hosted runner 
+    - https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/about-self-hosted-runners
+  - Install Visual Studio 2019
+    - Add TextTransform.exe to path
+    - C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional\Common7\IDE\TextTransform.exe
+  - Install WiX Toolset 
+    - https://github.com/wixtoolset/wix3/releases/tag/wix314rtm
+    - Add light.exe, candle.exe to path
+  - Add Microsoft.QualityTools.Testing.Fakes.dll to GAC
+    - Get NuGet Package: https://www.nuget.org/packages/Microsoft.QualityTools.Testing.Fakes/16.11.230815
+    - C:\Program Files (x86)\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools\gacutil.exe -i Microsoft.QualityTools.Testing.Fakes.dll
