@@ -107,7 +107,7 @@ jobs:
       - name: Build
         run: |
           Get-ChildItem -Recurse -Filter *.sln | ForEach-Object {
-            msbuild $_.FullName -p:Configuration=Release /p:GenerateProjectSpecificOutputFolder=true
+            msbuild $_.FullName -p:Configuration=Release /p:GenerateProjectSpecificOutputFolder=true /p:OutDir=out
           }
 
       - name: Post-Build
