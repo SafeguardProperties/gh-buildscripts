@@ -137,7 +137,7 @@
 			# {
 			# 	$projectBinPath = $projectBinPathWebApplicationPath
 			# }
-			 $projectBinPath = $projectBinPath.Replace("\Release", [string]::Empty) 
+			$projectBinPath = Join-Path (Join-Path (Join-Path (Join-Path (Join-Path $BinRootPath $appSourceDirectory) "out") $appSourceDirectory) "_PublishedWebsites") $appSourceDirectory
 		}
         
 		#*****************************************
