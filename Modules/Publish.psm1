@@ -284,42 +284,45 @@
 				$msiPath = Join-Path $OutputRootPath "$($appName)_v$($version)$($preTag).msi" 
 				if(Test-Path "$($msiPath)")
 				{
-                        $dropFolder = "Release"
-                        
-                        # copy to s3
-                        Write-Host "Execute: aws s3 cp $($msiPath) s3://sgpdevelopedsoftware/$($dropFolder)/$($env:REPOSITORY)/$($appName)_v$($version)$($preTag).msi"
-                        $s3Dest = "s3://sgpdevelopedsoftware/$($dropFolder)/$($env:REPOSITORY)/$($appName)_v$($version)$($preTag).msi"
-						$s3CopyCommand = "aws s3 cp `"$msiPath`" `"$s3Dest`""
-						Invoke-Expression $s3CopyCommand
-						if ($LASTEXITCODE -ne 0) {
-							Write-Error "AWS S3 copy command failed with exit code $LASTEXITCODE"
-							exit 1
-						} 
+					$dropFolder = "Release"
+					
+					# copy to s3
+					Write-Host "Execute: aws s3 cp $($msiPath) s3://sgpdevelopedsoftware/$($dropFolder)/$($env:REPOSITORY)/$($appName)_v$($version)$($preTag).msi"
+					$s3Dest = "s3://sgpdevelopedsoftware/$($dropFolder)/$($env:REPOSITORY)/$($appName)_v$($version)$($preTag).msi"
+					$s3CopyCommand = "aws s3 cp `"$msiPath`" `"$s3Dest`""
+					Invoke-Expression $s3CopyCommand
+					if ($LASTEXITCODE -ne 0) {
+						Write-Error "AWS S3 copy command failed with exit code $LASTEXITCODE"
+						exit 1
+					} 
 
-
-                        # deploy
-                        #Write-Host "Deploy to DEV - $($etcdCmdSetVersionPath) $($env:REPOSITORY) $($appName) $($version)"
-                        $etcdCmdSetVersionPath = Join-Path $($MyInvocation.PSScriptRoot) "Tool\EtcdCmdSetVersion\EtcdCmdSetVersion.exe"
-	                    $ps = new-object System.Diagnostics.Process
-	                    $ps.StartInfo.Filename = $etcdCmdSetVersionPath
-	                    $ps.StartInfo.Arguments = "$($env:REPOSITORY) $($appName) $($version)"
-	                    $ps.StartInfo.RedirectStandardOutput = $True
-	                    $ps.StartInfo.RedirectStandardError = $True
-	                    $ps.StartInfo.UseShellExecute = $false
-	                    $ps.start()
-	                    if(!$ps.WaitForExit(30000)) 
-	                    {
-		                    $ps.Kill()
-	                    }
-	                    [string] $Out = $ps.StandardOutput.ReadToEnd();
-	                    [string] $ErrOut = $ps.StandardError.ReadToEnd();
-	                    Write-Host "Execute: $($ps.StartInfo.Filename) $($ps.StartInfo.Arguments)"        
-	                    if ($ErrOut -ne "") 
-	                    {
-		                    Write-Error "EtcdCmdSetVersion Errors"
-		                    Write-Error $ErrOut
-	                    }
-                        Write-Host $Out
+					# only deploy types we care about
+					$deployTypes = @("WEBSITE", "POLLMANAGER", "WORKMANAGER", "WORKHANDLER", "POLLHANDLER", "GENERICPOLLER", "GENERICWORKER")
+					if ($deployTypes -contains $appType.ToUpper()) {
+						# deploy
+						#Write-Host "Deploy to DEV - $($etcdCmdSetVersionPath) $($env:REPOSITORY) $($appName) $($version)"
+						$etcdCmdSetVersionPath = Join-Path $($MyInvocation.PSScriptRoot) "Tool\EtcdCmdSetVersion\EtcdCmdSetVersion.exe"
+						$ps = new-object System.Diagnostics.Process
+						$ps.StartInfo.Filename = $etcdCmdSetVersionPath
+						$ps.StartInfo.Arguments = "$($env:REPOSITORY) $($appName) $($version)"
+						$ps.StartInfo.RedirectStandardOutput = $True
+						$ps.StartInfo.RedirectStandardError = $True
+						$ps.StartInfo.UseShellExecute = $false
+						$ps.start()
+						if(!$ps.WaitForExit(30000)) 
+						{
+							$ps.Kill()
+						}
+						[string] $Out = $ps.StandardOutput.ReadToEnd();
+						[string] $ErrOut = $ps.StandardError.ReadToEnd();
+						Write-Host "Execute: $($ps.StartInfo.Filename) $($ps.StartInfo.Arguments)"        
+						if ($ErrOut -ne "") 
+						{
+							Write-Error "EtcdCmdSetVersion Errors"
+							Write-Error $ErrOut
+						}
+						Write-Host $Out
+					}
 				}
 				else
 				{
