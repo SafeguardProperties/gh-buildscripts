@@ -132,11 +132,12 @@
 		#web applications will put their output in a publish folder, if building a website tack this on
 		if($appType.ToUpper() -eq "WEBSITE")
 		{ 
-			$projectBinPathWebApplicationPath = Join-Path $projectBinPath "_PublishedWebsites\$($projectName)" 
-			if(Test-Path $projectBinPathWebApplicationPath)
-			{
-				$projectBinPath = $projectBinPathWebApplicationPath
-			}
+			# $projectBinPathWebApplicationPath = Join-Path $projectBinPath "_PublishedWebsites\$($projectName)" 
+			# if(Test-Path $projectBinPathWebApplicationPath)
+			# {
+			# 	$projectBinPath = $projectBinPathWebApplicationPath
+			# }
+			 $projectBinPath = $projectBinPath.Replace("\Release", [string]::Empty) 
 		}
         
 		#*****************************************
