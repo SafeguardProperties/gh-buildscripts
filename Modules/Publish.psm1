@@ -304,7 +304,7 @@
 						$etcdCmdSetVersionPath = Join-Path $($MyInvocation.PSScriptRoot) "Tool\EtcdCmdSetVersion\EtcdCmdSetVersion.exe"
 						$ps = new-object System.Diagnostics.Process
 						$ps.StartInfo.Filename = $etcdCmdSetVersionPath
-						$ps.StartInfo.Arguments = "$($env:REPOSITORY) '$($appName)' $($version)"
+						$ps.StartInfo.Arguments = "$($env:REPOSITORY) `"$($appName)`" $($version)"
 						$ps.StartInfo.RedirectStandardOutput = $True
 						$ps.StartInfo.RedirectStandardError = $True
 						$ps.StartInfo.UseShellExecute = $false
