@@ -127,11 +127,9 @@
 				#$projectBinPath = Join-Path (Join-Path $BinRootPath $projectName) "bin\Release"
 				#$projectBinPath = Join-Path (Join-Path $BinRootPath $appSourceDirectory) "bin\Release"
 
-				[xml]$proj = Get-Content $csProjFile
-				$projectName = $proj.Project.PropertyGroup.AssemblyName
-                $projDir = $csProjFile.Directory.Name
-                $projectBinPath = Join-Path (Join-Path (Join-Path $BinRootPath $projDir) "out") $projectName 
-
+				$projDir = $csProjFile.Directory.Name
+				$projectName = [System.IO.Path]::GetFileNameWithoutExtension($csProjFile.FullName)
+				$projectBinPath = Join-Path (Join-Path (Join-Path $BinRootPath $projDir) "out") $projectName 
 			}
 		}
 
