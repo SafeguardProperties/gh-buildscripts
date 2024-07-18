@@ -48,9 +48,14 @@
 	$REGEX_PATTERN_VERSION_NUGET_PRE = "^([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-4])\.([0-9]{1,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-4])\.([0-9]{1,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-4])(-pre)(00[1-9]|0[1-9][0-9]|[1-9][0-9][0-9])$"
 	$isNugetPrerelease = [Regex]::IsMatch($Version,$REGEX_PATTERN_VERSION_NUGET_PRE)
 	$isRegularRelease = [Regex]::IsMatch($Version,$REGEX_PATTERN_VERSION_NUGET)
-    if(-not $Version -or (-not [Regex]::IsMatch($Version,$REGEX_PATTERN_VERSION) -and -not $isNugetPrerelease))
+	if(-not $Version)
+	{
+		Write-Error ("Publish-Deliverables --> Version parameter is missing.")
+		exit 1
+	}
+    if((-not [Regex]::IsMatch($Version,$REGEX_PATTERN_VERSION) -and -not $isNugetPrerelease))
     {
-        Write-Error ("Publish-Deliverables --> Version parameter is missing or invalid. Version: $Version, isNugetPreRelease: $isNugetPrerelease, isRegularRelease: $isRegularRelease")
+        Write-Error ("Publish-Deliverables --> Version parameter is invalid. Version: $Version, isNugetPreRelease: $isNugetPrerelease, isRegularRelease: $isRegularRelease")
 	    exit 1
     }
 
