@@ -50,10 +50,7 @@
 	$isRegularRelease = [Regex]::IsMatch($Version,$REGEX_PATTERN_VERSION_NUGET)
     if(-not $Version -or (-not [Regex]::IsMatch($Version,$REGEX_PATTERN_VERSION) -and -not $isNugetPrerelease))
     {
-		Write-Host ("Version: $Version")
-		Write-Host ("isNugetPrerelease: $isNugetPrerelease")
-		Write-Host ("isRegularRelease: $isRegularRelease")
-        Write-Error ("Publish-Deliverables --> Version parameter is missing or invalid.")
+        Write-Error ("Publish-Deliverables --> Version parameter is missing or invalid. Version: $Version, isNugetPreRelease: $isNugetPrerelease, isRegularRelease: $isRegularRelease")
 	    exit 1
     }
 
