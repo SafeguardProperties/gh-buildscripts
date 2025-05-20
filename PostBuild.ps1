@@ -25,6 +25,7 @@ if($solutionFiles.Count -ne 0)
 	$solutionFiles | % {	
         Write-Host "Publish-Deliverables -SlnPath `"$($env:REPO_CHECKOUT_PATH)`" -BinRootPath `"$($env:REPO_CHECKOUT_PATH)`" -Version $($version) -OutputRootPath `"$($outputRoot)`""
         Write-Host "Current Directory: $(Get-Location)"
+	Write-Host "Publish-Deliverables -SlnPath `"$($_.DirectoryName)`" -BinRootPath `"$($env:REPO_CHECKOUT_PATH)`" -Version $version -OutputRootPath `"$($outputRoot)`""
 	Publish-Deliverables -SlnPath "$($_.DirectoryName)" -BinRootPath "$($env:REPO_CHECKOUT_PATH)" -Version $version -OutputRootPath "$($outputRoot)"
 	}
 }
