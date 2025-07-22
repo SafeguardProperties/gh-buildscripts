@@ -32,7 +32,7 @@ jobs:
           $repository = $env:GITHUB_REPOSITORY.Split('/')[1]
           $releaseVersion = $env:GITHUB_REF.Substring(10)
           $releaseVersionOnly = $env:GITHUB_REF.Substring(11)
-          $codeArtifactToken = aws codeartifact get-authorization-token --domain sgpd --domain-owner 795585726412 --region us-east-1 --query authorizationToken --output text
+          $codeArtifactToken = aws codeartifact get-authorization-token --domain ${{ secrets.CODEARTIFACT_DOMAIN }} --domain-owner ${{ secrets.CODEARTIFACT_ACCOUNT_ID }} --region ${{ secrets.CODEARTIFACT_REGION }} --query authorizationToken --output text
           Add-Content -Path $env:GITHUB_ENV -Value "RELEASE_VERSION=$releaseVersion"
           Add-Content -Path $env:GITHUB_ENV -Value "RELEASE_VERSION_ONLY=$releaseVersionOnly"
           Add-Content -Path $env:GITHUB_ENV -Value "REPOSITORY=$repository"
@@ -79,13 +79,13 @@ jobs:
           $nugetConfigContent = @"
           <configuration>
             <packageSources>
-              <add key="sgpd/Net45" value="https://sgpd-795585726412.d.codeartifact.us-east-1.amazonaws.com/nuget/Net45/v3/index.json" />
+              <add key="${{ secrets.CODEARTIFACT_DOMAIN }}/Net45" value="https://${{ secrets.CODEARTIFACT_DOMAIN }}-${{ secrets.CODEARTIFACT_ACCOUNT_ID }}.d.codeartifact.${{ secrets.CODEARTIFACT_REGION }}.amazonaws.com/nuget/Net45/v3/index.json" />
             </packageSources>
             <packageSourceCredentials>
-              <sgpd_x002F_Net45>
+              <${{ secrets.CODEARTIFACT_DOMAIN }}_x002F_Net45>
                 <add key="Username" value="aws" />
                 <add key="ClearTextPassword" value="$codeArtifactToken" />
-              </sgpd_x002F_Net45>
+              </${{ secrets.CODEARTIFACT_DOMAIN }}_x002F_Net45>
             </packageSourceCredentials>
           </configuration>
           "@
